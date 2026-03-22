@@ -12,7 +12,10 @@ import urllib.request
 import urllib.error
 import json
 
-from version import __version__
+try:
+    from version import __version__
+except ImportError:
+    __version__ = "0.0.0"
 
 GITHUB_OWNER = "JustinGlave"
 GITHUB_REPO  = "valve-master-tool"

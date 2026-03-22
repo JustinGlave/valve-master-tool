@@ -46,7 +46,10 @@ from valve_master_backend import (
     run_baseline_debug_benchmark,
     standard_product_configs,
 )
-from version import __version__
+try:
+    from version import __version__
+except ImportError:
+    __version__ = "0.0.0"
 from updater import check_for_update, fetch_all_release_notes, download_and_install
 
 ICON_FILE = "valve_master.ico"

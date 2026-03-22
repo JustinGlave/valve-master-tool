@@ -9,7 +9,7 @@ REM ============================================================
 echo Cleaning previous build...
 if exist dist  rmdir /s /q dist
 if exist build rmdir /s /q build
-if exist ValveMasterTool.spec del ValveMasterTool.spec
+if exist *.spec del *.spec
 
 echo Building with PyInstaller...
 pyinstaller ^
@@ -19,6 +19,7 @@ pyinstaller ^
     --name=ValveMasterTool ^
     --add-data="valve_master.ico;." ^
     --add-data="vmt_logo_transparent.png;." ^
+    --add-data="version.py;." ^
     --hidden-import=PySide6.QtCore ^
     --hidden-import=PySide6.QtGui ^
     --hidden-import=PySide6.QtWidgets ^
@@ -35,18 +36,9 @@ if errorlevel 1 (
 echo.
 echo Build succeeded. Zipping exe only for GitHub release...
 
-REM Zip ONLY the exe (~5 MB), not the whole dist folder (~255 MB)
+if exist dist\ValveMasterTool.zip del dist\ValveMasterTool.zip
 powershell -ExecutionPolicy Bypass -Command ^
-"Add-Type -AssemblyName System.IO.Compression.FileSystem; ^
-[System.IO.Compression.ZipFile]::CreateFromDirectory('placeholder', 'placeholder') 2>$null; ^
-$zip = [System.IO.Compression.ZipFile]::Open('ValveMasterTool.zip', 'Create'); ^
-[System.IO.Compression.ZipFileExtensions]::CreateEntryFromFile($zip, 'dist\ValveMasterTool\ValveMasterTool.exe', 'ValveMasterTool.exe'); ^
-$zip.Dispose()" 2>NUL
-
-REM Simpler approach — use Compress-Archive just on the exe
-if exist ValveMasterTool.zip del ValveMasterTool.zip
-powershell -ExecutionPolicy Bypass -Command ^
-"Compress-Archive -Path 'dist\ValveMasterTool\ValveMasterTool.exe' -DestinationPath 'ValveMasterTool.zip' -Force"
+"Compress-Archive -Path 'dist\ValveMasterTool\ValveMasterTool.exe' -DestinationPath 'dist\ValveMasterTool.zip' -Force"
 
 if errorlevel 1 (
     echo.
@@ -59,7 +51,7 @@ echo.
 echo ============================================================
 echo  DONE!
 echo  Exe  : dist\ValveMasterTool\ValveMasterTool.exe
-echo  Zip  : ValveMasterTool.zip  (upload this to GitHub Release)
+echo  Zip  : dist\ValveMasterTool.zip  (upload this to GitHub Release)
 echo ============================================================
 echo.
 echo Next steps:
