@@ -3,6 +3,8 @@ import os
 import sys
 import textwrap
 import threading
+import urllib.error
+import urllib.request
 from typing import Callable
 
 from PySide6.QtCore import Qt, QSize, QTimer, Signal
@@ -23,6 +25,7 @@ from PySide6.QtWidgets import (
     QMainWindow,
     QMessageBox,
     QPushButton,
+    QProgressDialog,
     QScrollArea,
     QSizePolicy,
     QSplitter,
@@ -50,7 +53,7 @@ try:
     from version import __version__
 except ImportError:
     __version__ = "0.0.0"
-from updater import check_for_update, fetch_all_release_notes, download_and_install
+from updater import UpdateInfo, check_for_update, download_and_apply
 
 ICON_FILE = "valve_master.ico"
 BACKGROUND_FILE = "vmt_logo_transparent.png"
@@ -561,57 +564,48 @@ class ValidationIssueRow(QFrame):
 
 class UpdateBanner(QFrame):
     """
-    Green banner shown at the bottom of the window when an update is available.
-    Hidden by default; shown by ValveMasterMainWindow._show_update_banner().
+    Slim banner shown in the status bar when an update is available.
+    Matches the style of the Project Tracking Tool updater.
     """
 
-    install_clicked  = Signal()
-    dismiss_clicked  = Signal()
+    install_clicked = Signal()
 
-    def __init__(self, parent: QWidget | None = None) -> None:
+    def __init__(self, info: "UpdateInfo", parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setObjectName("UpdateBanner")
-        self.setFixedHeight(40)
-        self.setStyleSheet(
-            """
-            QFrame#UpdateBanner {
-                background: #14532d;
-                border-top: 1px solid #16a34a;
-            }
-            QLabel { color: #bbf7d0; font-weight: 600; font-size: 12px; background: transparent; }
-            QPushButton {
-                background: #16a34a; color: #ffffff; border: 1px solid #4ade80;
-                border-radius: 6px; padding: 3px 12px; font-weight: 700; font-size: 12px;
-            }
-            QPushButton:hover { background: #15803d; }
-            QPushButton#DismissBtn {
-                background: transparent; color: #86efac; border: 1px solid #4ade80;
-            }
-            QPushButton#DismissBtn:hover { background: #166534; }
-            """
+        self.setFixedHeight(44)
+
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(16, 0, 16, 0)
+
+        msg = QLabel(
+            f"🆕  Update available — v{info.latest_version} is ready. "
+            f"You're on v{info.current_version}."
         )
+        msg.setObjectName("UpdateMsg")
+        layout.addWidget(msg, 1)
 
-        row = QHBoxLayout(self)
-        row.setContentsMargins(16, 4, 16, 4)
-        row.setSpacing(12)
-
-        self._label = QLabel("🚀 A new version is available!")
-        row.addWidget(self._label)
-        row.addStretch(1)
+        if info.release_notes:
+            notes_btn = QPushButton("What's new?")
+            notes_btn.setFixedWidth(100)
+            notes_btn.clicked.connect(lambda: QMessageBox.information(
+                self,
+                f"What's new in v{info.latest_version}",
+                info.release_notes,
+            ))
+            layout.addWidget(notes_btn)
 
         install_btn = QPushButton("Install & Restart")
+        install_btn.setFixedWidth(140)
+        install_btn.setObjectName("InstallBtn")
         install_btn.clicked.connect(self.install_clicked)
-        row.addWidget(install_btn)
+        layout.addWidget(install_btn)
 
-        dismiss_btn = QPushButton("Dismiss")
-        dismiss_btn.setObjectName("DismissBtn")
-        dismiss_btn.clicked.connect(self.dismiss_clicked)
-        row.addWidget(dismiss_btn)
-
-        self.hide()
-
-    def set_version_text(self, new_version: str) -> None:
-        self._label.setText(f"🚀 Update available: v{new_version} — click Install & Restart to upgrade.")
+        dismiss_btn = QPushButton("✕")
+        dismiss_btn.setFixedWidth(32)
+        dismiss_btn.setToolTip("Dismiss")
+        dismiss_btn.clicked.connect(self.hide)
+        layout.addWidget(dismiss_btn)
 
 
 class WatermarkWidget(QWidget):
@@ -662,7 +656,7 @@ class WatermarkWidget(QWidget):
 
 
 class ValveMasterMainWindow(QMainWindow):
-    _update_ready = Signal(str, str)   # (new_version, download_url)
+    _update_ready = Signal()   # emitted from bg thread when a new version is found
 
     def __init__(self) -> None:
         super().__init__()
@@ -679,7 +673,8 @@ class ValveMasterMainWindow(QMainWindow):
         self.current_parsed_model: ParsedModel | None = None
         self.current_operating_table: OperatingTable | None = None
         self.show_test_models: bool = True
-        self._pending_update_url: str = ""
+        self._pending_update_info: UpdateInfo | None = None
+        self._update_banner: UpdateBanner | None = None
 
         self._field_card_specs: list[tuple[str, str, bool, bool]] = []
 
@@ -813,11 +808,8 @@ class ValveMasterMainWindow(QMainWindow):
         self.main_splitter.setStretchFactor(2, 4)
         self.main_splitter.setSizes([320, 840, 380])
 
-        # Update banner sits below the splitter, hidden until an update is found
-        self.update_banner = UpdateBanner()
-        self.update_banner.install_clicked.connect(self._install_update)
-        self.update_banner.dismiss_clicked.connect(self.update_banner.hide)
-        root_layout.addWidget(self.update_banner)
+        # Update banner — hidden until a new version is detected
+        self._update_banner = None
 
         status = QStatusBar()
         status.showMessage("Valve Master Tool | Guided model builder ready")
@@ -1205,6 +1197,25 @@ class ValveMasterMainWindow(QMainWindow):
                 background: #1d4ed8;
                 color: #ffffff;
                 border-radius: 4px;
+            }
+            #UpdateBanner {
+                background: rgba(30, 60, 40, 220);
+                border-top: 1px solid #2d6a3f;
+            }
+            #UpdateBanner QLabel#UpdateMsg {
+                color: #6ee7a0;
+                font-weight: 600;
+                font-size: 12px;
+                background: transparent;
+            }
+            #InstallBtn {
+                background: #2d6a3f;
+                border: 1px solid #3d8a52;
+                color: white;
+                font-weight: 700;
+            }
+            #InstallBtn:hover {
+                background: #3d8a52;
             }
             """
         )
@@ -1847,36 +1858,40 @@ class ValveMasterMainWindow(QMainWindow):
     # ------------------------------------------------------------------ #
 
     def _check_update_bg(self) -> None:
-        """Background thread — checks GitHub for a newer release."""
-        try:
-            available, new_version, download_url = check_for_update()
-            if available and download_url:
-                self._update_ready.emit(new_version, download_url)
-        except (OSError, ValueError, RuntimeError):
-            pass  # Never crash the app over an update check
+        """Runs in a daemon thread — checks GitHub, posts result to UI thread."""
+        info = check_for_update()
+        if info:
+            self._pending_update_info = info
+            self._update_ready.emit()
 
-    def _show_update_banner(self, new_version: str, download_url: str) -> None:
-        """Called on the UI thread via Signal when an update is found."""
-        self._pending_update_url = download_url
-        self.update_banner.set_version_text(new_version)
-        self.update_banner.show()
-        self.statusBar().showMessage(f"Update available: v{new_version} — see banner below")
+    def _show_update_banner(self) -> None:
+        info = self._pending_update_info
+        if info is None:
+            return
+        banner = UpdateBanner(info, self)
+        banner.install_clicked.connect(lambda: self._do_install(info))
+        self._update_banner = banner
+        self.statusBar().addPermanentWidget(banner, 1)
+        banner.show()
+        self.statusBar().showMessage(f"Update available: v{info.latest_version}", 0)
 
-    def _install_update(self) -> None:
-        if not self._pending_update_url:
-            return
-        reply = QMessageBox.question(
-            self,
-            "Install Update",
-            "The app will download the update, close, install, and restart automatically.\n\nProceed?",
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-        )
-        if reply != QMessageBox.StandardButton.Yes:
-            return
+    def _do_install(self, info: UpdateInfo) -> None:
+        progress = QProgressDialog("Downloading update…", "Cancel", 0, 100, self)
+        progress.setWindowTitle("Installing Update")
+        progress.setModal(True)
+        progress.setValue(0)
+        progress.show()
+
+        def on_progress(done: int, total: int) -> None:
+            if total > 0:
+                progress.setValue(int(done / total * 100))
+            QApplication.processEvents()
+
         try:
-            download_and_install(self._pending_update_url)
-        except Exception as exc:
-            QMessageBox.critical(self, "Update Failed", f"Could not install update:\n{exc}")
+            download_and_apply(info, progress_callback=on_progress)
+        except RuntimeError as exc:
+            progress.close()
+            QMessageBox.critical(self, "Update Failed", str(exc))
 
     # ------------------------------------------------------------------ #
     # Startup checks                                                       #
@@ -1911,55 +1926,81 @@ class ValveMasterMainWindow(QMainWindow):
     # ------------------------------------------------------------------ #
 
     def show_version_history(self) -> None:
-        dlg = QDialog(self)
-        dlg.setWindowTitle("Version History & Recent Updates")
-        dlg.resize(780, 560)
+        """Fetch all releases from GitHub and display them in a scrollable dialog."""
+        from PySide6.QtWidgets import QPlainTextEdit
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Version History & Recent Updates")
+        dialog.setModal(True)
+        dialog.resize(560, 480)
 
-        layout = QVBoxLayout(dlg)
+        layout = QVBoxLayout(dialog)
+        layout.setSpacing(12)
 
-        header = QLabel("Version History")
-        header.setStyleSheet("font-size: 16px; font-weight: 700; color: #93c5fd;")
+        header = QLabel("Fetching release history from GitHub…")
+        header.setStyleSheet("font-size: 14px; font-weight: 700; color: #93c5fd;")
         layout.addWidget(header)
 
-        text_box = QTextEdit()
-        text_box.setReadOnly(True)
-        layout.addWidget(text_box)
+        text_area = QPlainTextEdit()
+        text_area.setReadOnly(True)
+        text_area.setStyleSheet(
+            "background: #0e1016; color: #7a8599; border: 1px solid #252b36; "
+            "border-radius: 8px; padding: 8px; font-family: Consolas, monospace; font-size: 12px;"
+        )
+        layout.addWidget(text_area, 1)
 
         close_btn = QPushButton("Close")
-        close_btn.clicked.connect(dlg.accept)
+        close_btn.setFixedWidth(100)
+        close_btn.clicked.connect(dialog.accept)
         btn_row = QHBoxLayout()
-        btn_row.addStretch(1)
+        btn_row.addStretch()
         btn_row.addWidget(close_btn)
         layout.addLayout(btn_row)
 
-        text_box.setPlainText("Fetching release notes from GitHub...")
-        dlg.show()
+        dialog.show()
+        QApplication.processEvents()
 
-        def _fetch() -> None:
-            try:
-                releases = fetch_all_release_notes()
-                if not releases:
-                    text_box.setPlainText("No releases found, or could not reach GitHub.")
-                    return
-                lines = []
-                for r in releases:
-                    tag   = r.get("tag", "")
-                    name  = r.get("name", "") or tag
-                    date  = r.get("published_at", "")
-                    body  = r.get("body", "").strip()
-                    lines.append(f"{'='*60}")
-                    lines.append(f"{name}  ({tag})  —  {date}")
-                    lines.append(f"{'='*60}")
-                    if body:
-                        lines.append(body)
-                    lines.append("")
-                text_box.setPlainText("\n".join(lines))
-            except Exception as exc:
-                text_box.setPlainText(f"Could not fetch release notes:\n{exc}")
+        # Fetch releases in-place (dialog is already visible)
+        try:
+            import json as _json
+            url = f"https://api.github.com/repos/JustinGlave/valve-master-tool/releases"
+            req = urllib.request.Request(
+                url,
+                headers={"Accept": "application/vnd.github+json",
+                         "User-Agent": "ValveMasterTool"},
+            )
+            with urllib.request.urlopen(req, timeout=8) as resp:
+                releases = _json.loads(resp.read().decode())
 
-        threading.Thread(target=_fetch, daemon=True).start()
+            if not releases:
+                text_area.setPlainText("No releases found on GitHub.")
+                header.setText("Version History")
+                dialog.exec()
+                return
 
-        dlg.exec()
+            lines = []
+            for rel in releases:
+                tag   = rel.get("tag_name", "").lstrip("vV")
+                name  = rel.get("name", tag)
+                date  = rel.get("published_at", "")[:10]
+                notes = rel.get("body", "").strip() or "No release notes."
+                lines.append(f"v{tag} — {name}  ({date})")
+                lines.append("─" * 48)
+                lines.append(notes)
+                lines.append("")
+
+            text_area.setPlainText("\n".join(lines))
+            count = len(releases)
+            header.setText(f"Version History  ({count} release{'s' if count != 1 else ''})")
+
+        except (urllib.error.URLError, OSError) as exc:
+            text_area.setPlainText(
+                f"Could not fetch release history.\n\nError: {exc}\n\n"
+                "You can view the full history at:\n"
+                "https://github.com/JustinGlave/valve-master-tool/releases"
+            )
+            header.setText("Version History")
+
+        dialog.exec()
 
     def show_about(self) -> None:
         QMessageBox.information(

@@ -1,28 +1,56 @@
-# updater.py
-# GitHub Releases auto-updater for ValveMasterTool
-# Checks for a newer version on startup (background thread).
-# Downloads and installs via a batch script — proven working approach.
+"""
+updater.py — GitHub-based auto-updater for ValveMasterTool.
 
+How it works
+------------
+1. On startup the GUI calls check_for_update() in a background thread.
+2. That function hits the GitHub Releases API and compares the latest tag
+   against the local __version__ string.
+3. If a newer version exists it returns an UpdateInfo object; the GUI shows
+   a banner in the status bar with an "Install & Restart" button.
+4. When the user clicks the button, download_and_apply() is called:
+      a. Downloads the new .zip to a temp file.
+      b. Writes a tiny .bat script that waits for this process to exit,
+         extracts just the exe from the zip, then relaunches it.
+      c. Launches the .bat and calls sys.exit() — Windows takes it from there.
+
+Configuration
+-------------
+Set GITHUB_OWNER and GITHUB_REPO to match your GitHub account and repository.
+The updater looks for a release asset whose name ends with .zip.
+"""
+
+from __future__ import annotations
+
+import logging
 import os
 import re
 import subprocess
 import sys
 import tempfile
-import urllib.request
 import urllib.error
+import urllib.request
 import json
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Optional
 
 try:
     from version import __version__
 except ImportError:
     __version__ = "0.0.0"
 
+logger = logging.getLogger(__name__)
+
+# ── CHANGE THESE to match your GitHub account / repo name ─────────────────────
 GITHUB_OWNER = "JustinGlave"
 GITHUB_REPO  = "valve-master-tool"
 EXE_NAME     = "ValveMasterTool.exe"
+# ──────────────────────────────────────────────────────────────────────────────
 
-API_URL = f"https://api.github.com/repos/{GITHUB_OWNER}/{GITHUB_REPO}/releases/latest"
+RELEASES_API     = f"https://api.github.com/repos/{GITHUB_OWNER}/{GITHUB_REPO}/releases/latest"
 ALL_RELEASES_URL = f"https://api.github.com/repos/{GITHUB_OWNER}/{GITHUB_REPO}/releases"
+REQUEST_TIMEOUT  = 8  # seconds
 
 HEADERS = {
     "Accept": "application/vnd.github+json",
@@ -30,151 +58,148 @@ HEADERS = {
 }
 
 
+@dataclass
+class UpdateInfo:
+    current_version: str
+    latest_version:  str
+    download_url:    str
+    release_notes:   str
+
+
 def _parse_version(tag: str) -> tuple[int, ...]:
-    """Strip leading 'v'/'V' and return a tuple of ints for comparison."""
-    cleaned = tag.lstrip("vV")
-    parts = re.split(r"[.\-]", cleaned)
-    result = []
-    for p in parts:
-        try:
-            result.append(int(p))
-        except ValueError:
-            break
-    return tuple(result)
-
-
-def _fetch_json(url: str) -> dict | list | None:
-    req = urllib.request.Request(url, headers=HEADERS)
+    """Convert 'v1.2.3', 'V1.2.3', or '1.2.3' to (1, 2, 3) for comparison."""
+    cleaned = re.sub(r"[^\d.]", "", tag.lstrip("vV"))
     try:
-        with urllib.request.urlopen(req, timeout=10) as resp:
-            return json.loads(resp.read().decode("utf-8"))
-    except (urllib.error.URLError, OSError, ValueError, KeyError):
+        return tuple(int(part) for part in cleaned.split(".") if part)
+    except ValueError:
+        return (0,)
+
+
+def check_for_update() -> Optional[UpdateInfo]:
+    """
+    Query the GitHub Releases API.
+    Returns an UpdateInfo if a newer version is available, otherwise None.
+    Safe to call from a background thread — never raises, logs errors instead.
+    """
+    try:
+        req = urllib.request.Request(RELEASES_API, headers=HEADERS)
+        with urllib.request.urlopen(req, timeout=REQUEST_TIMEOUT) as resp:
+            data = json.loads(resp.read().decode())
+
+        latest_tag = data.get("tag_name", "")
+        if not latest_tag:
+            return None
+
+        if _parse_version(latest_tag) <= _parse_version(__version__):
+            return None  # already up to date
+
+        # Find the .zip asset
+        assets = data.get("assets", [])
+        zip_asset = next(
+            (a for a in assets if a.get("name", "").lower().endswith(".zip")),
+            None,
+        )
+        if zip_asset is None:
+            logger.warning("New release %s found but no .zip asset attached.", latest_tag)
+            return None
+
+        return UpdateInfo(
+            current_version=__version__,
+            latest_version=latest_tag.lstrip("vV"),
+            download_url=zip_asset["browser_download_url"],
+            release_notes=data.get("body", "").strip(),
+        )
+
+    except urllib.error.URLError as exc:
+        logger.debug("Update check failed (network): %s", exc)
+        return None
+    except (OSError, ValueError, KeyError) as exc:
+        logger.warning("Update check failed: %s", exc)
         return None
 
 
-def check_for_update() -> tuple[bool, str, str]:
+def download_and_apply(info: UpdateInfo, progress_callback=None) -> None:
     """
-    Returns (update_available, latest_version_str, download_url).
-    download_url is the zip asset URL, or "" if not available.
+    Download the new zip, extract just the exe over the current install,
+    and restart via a batch script.
+
+    progress_callback(bytes_done, total_bytes) is called during download
+    so the GUI can show a progress bar. Pass None to skip.
+
+    Raises RuntimeError if anything goes wrong so the caller can show
+    an error dialog rather than silently failing.
     """
-    data = _fetch_json(API_URL)
-    if not data or not isinstance(data, dict):
-        return False, "", ""
+    if not getattr(sys, "frozen", False):
+        raise RuntimeError(
+            "Update can only be applied to a compiled build.\n"
+            "You're running from source — pull the latest code from GitHub instead."
+        )
 
-    latest_tag = data.get("tag_name", "")
-    if not latest_tag:
-        return False, "", ""
+    current_exe = Path(sys.executable).resolve()
+    new_exe     = current_exe.parent / EXE_NAME
 
-    current = _parse_version(__version__)
-    latest  = _parse_version(latest_tag)
-
-    if latest <= current:
-        return False, latest_tag.lstrip("vV"), ""
-
-    # Find a zip asset containing the exe
-    assets = data.get("assets", [])
-    zip_url = ""
-    for asset in assets:
-        name = asset.get("name", "")
-        if name.lower().endswith(".zip"):
-            zip_url = asset.get("browser_download_url", "")
-            break
-
-    return True, latest_tag.lstrip("vV"), zip_url
-
-
-def fetch_all_release_notes() -> list[dict]:
-    """
-    Returns a list of dicts: [{tag, name, body, published_at}, ...]
-    Used by the Help → Version History dialog.
-    """
-    data = _fetch_json(ALL_RELEASES_URL)
-    if not data or not isinstance(data, list):
-        return []
-    results = []
-    for release in data:
-        results.append({
-            "tag":          release.get("tag_name", ""),
-            "name":         release.get("name", ""),
-            "body":         release.get("body", ""),
-            "published_at": release.get("published_at", "")[:10],  # YYYY-MM-DD
-        })
-    return results
-
-
-def download_and_install(zip_url: str, on_progress=None) -> None:
-    """
-    Downloads the zip, extracts just ValveMasterTool.exe next to the running
-    exe, then relaunches the app via a batch script.
-
-    on_progress(bytes_done, total_bytes) is called during download if provided.
-    """
-    # Determine where the running exe lives
-    if getattr(sys, "frozen", False):
-        exe_path = os.path.abspath(sys.executable)
-    else:
-        exe_path = os.path.abspath(__file__)
-
-    exe_dir = os.path.dirname(exe_path)
-
-    # Download zip to a temp file
-    tmp_zip = os.path.join(tempfile.gettempdir(), "ValveMasterTool_update.zip")
+    # Download zip to system temp
+    tmp_fd, tmp_zip_str = tempfile.mkstemp(suffix=".zip")
+    tmp_zip = Path(tmp_zip_str)
 
     try:
-        req = urllib.request.Request(zip_url, headers=HEADERS)
+        req = urllib.request.Request(info.download_url, headers=HEADERS)
         with urllib.request.urlopen(req, timeout=60) as resp:
             total = int(resp.headers.get("Content-Length", 0))
             done  = 0
-            chunk = 8192
-            with open(tmp_zip, "wb") as f:
+            chunk = 64 * 1024
+            with open(tmp_fd, "wb") as fh:
                 while True:
-                    data = resp.read(chunk)
-                    if not data:
+                    block = resp.read(chunk)
+                    if not block:
                         break
-                    f.write(data)
-                    done += len(data)
-                    if on_progress and total:
-                        on_progress(done, total)
-    except Exception as exc:
+                    fh.write(block)
+                    done += len(block)
+                    if progress_callback:
+                        progress_callback(done, total)
+
+        if total > 0 and tmp_zip.stat().st_size < total:
+            tmp_zip.unlink(missing_ok=True)
+            raise RuntimeError(
+                f"Download incomplete: got {tmp_zip.stat().st_size} of {total} bytes.\n"
+                "Please try again or download manually from GitHub."
+            )
+
+    except RuntimeError:
+        raise
+    except (urllib.error.URLError, OSError) as exc:
+        tmp_zip.unlink(missing_ok=True)
         raise RuntimeError(f"Download failed: {exc}") from exc
 
-    # Build a batch script that:
+    # Write a batch script that:
     #   1. Waits for this process to exit
-    #   2. Extracts ONLY the exe from the zip (PowerShell)
-    #   3. Restarts the app
-    #   4. Deletes itself
-    batch_path = os.path.join(tempfile.gettempdir(), "vmt_update.bat")
-    new_exe    = os.path.join(exe_dir, EXE_NAME)
-    pid        = os.getpid()
+    #   2. Extracts ONLY the exe from the zip via PowerShell
+    #   3. Relaunches the app
+    #   4. Cleans up temp files and itself
+    pid = os.getpid()
+    bat_fd, bat_path_str = tempfile.mkstemp(suffix=".bat")
+    bat_path = Path(bat_path_str)
 
-    batch_content = f"""@echo off
-:waitloop
-tasklist /FI "PID eq {pid}" 2>NUL | find /I "{pid}" >NUL
+    bat_content = f"""@echo off
+:wait
+tasklist /FI "PID eq {pid}" 2>nul | find "{pid}" >nul
 if not errorlevel 1 (
-    timeout /t 1 /nobreak >NUL
-    goto waitloop
+    timeout /t 1 /nobreak >nul
+    goto wait
 )
-
-powershell -ExecutionPolicy Bypass -Command ^
-"Add-Type -AssemblyName System.IO.Compression.FileSystem; ^
-$zip = [System.IO.Compression.ZipFile]::OpenRead('{tmp_zip}'); ^
-$entry = $zip.Entries | Where-Object {{ $_.Name -eq '{EXE_NAME}' }} | Select-Object -First 1; ^
-if ($entry) {{ [System.IO.Compression.ZipFileExtensions]::ExtractToFile($entry, '{new_exe}', $true) }}; ^
-$zip.Dispose()"
-
+powershell -ExecutionPolicy Bypass -Command "Add-Type -AssemblyName System.IO.Compression.FileSystem; $zip = [System.IO.Compression.ZipFile]::OpenRead('{tmp_zip}'); $entry = $zip.Entries | Where-Object {{ $_.Name -eq '{EXE_NAME}' }} | Select-Object -First 1; if ($entry) {{ [System.IO.Compression.ZipFileExtensions]::ExtractToFile($entry, '{new_exe}', $true) }}; $zip.Dispose()"
+del "{tmp_zip}"
 start "" "{new_exe}"
-del "{tmp_zip}" >NUL 2>&1
 del "%~f0"
 """
 
-    with open(batch_path, "w") as f:
-        f.write(batch_content)
+    with open(bat_fd, "w") as fh:
+        fh.write(bat_content)
 
     subprocess.Popen(
-        ["cmd.exe", "/c", batch_path],
+        ["cmd.exe", "/c", str(bat_path)],
         creationflags=subprocess.CREATE_NO_WINDOW,
         close_fds=True,
     )
 
-    # Exit this process so the batch script can replace the exe
     sys.exit(0)
