@@ -55,9 +55,13 @@ if errorlevel 1 (
 REM ── Step 2: Inno Setup ──────────────────────────────────────
 echo.
 echo [2/4] Compiling installer with Inno Setup...
-set ISCC="C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
-if not exist %ISCC% (
-    echo ERROR: Inno Setup not found at %ISCC%
+set ISCC=""
+if exist "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" set ISCC="C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
+if exist "C:\Program Files\Inno Setup 6\ISCC.exe"       set ISCC="C:\Program Files\Inno Setup 6\ISCC.exe"
+if exist "%LOCALAPPDATA%\Programs\Inno Setup 6\ISCC.exe" set ISCC="%LOCALAPPDATA%\Programs\Inno Setup 6\ISCC.exe"
+
+if %ISCC%=="" (
+    echo ERROR: Inno Setup 6 not found in any known location.
     echo        Download from https://jrsoftware.org/isdl.php
     pause
     exit /b 1

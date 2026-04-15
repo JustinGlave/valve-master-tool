@@ -77,13 +77,10 @@ begin
     if DirExists(DataDir) then
     begin
       Response := MsgBox(
-        'Would you like to delete your saved settings and app data?' + #13#10 +
-        #13#10 +
-        DataDir + #13#10 +
-        #13#10 +
+        'Would you like to delete your saved settings and app data?' + #13#10#13#10 +
+        DataDir + #13#10#13#10 +
         'Click Yes to delete everything, or No to keep your data.',
-        mbConfirmation,
-        MB_YESNO
+        mbConfirmation, MB_YESNO
       );
       if Response = IDYES then
         DelTree(DataDir, True, True, True);
