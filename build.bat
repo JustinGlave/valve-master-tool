@@ -24,9 +24,14 @@ echo Building version %APP_VERSION%...
 
 REM ── Clean previous build ────────────────────────────────────
 echo.
-echo Cleaning previous build...
+echo Cleaning previous dist...
 if exist dist  rmdir /s /q dist
-if exist build rmdir /s /q build
+REM NOTE: build\ is kept for PyInstaller's incremental cache.
+REM       Run with "build.bat clean" to force a full rebuild.
+if /i "%1"=="clean" (
+    echo Forcing clean build - removing build cache...
+    if exist build rmdir /s /q build
+)
 
 REM ── Step 1: PyInstaller ─────────────────────────────────────
 echo.
@@ -39,10 +44,9 @@ pyinstaller ^
     --add-data="valve_master.ico;." ^
     --add-data="vmt_logo_transparent.png;." ^
     --add-data="version.py;." ^
-    --hidden-import=PySide6.QtCore ^
-    --hidden-import=PySide6.QtGui ^
-    --hidden-import=PySide6.QtWidgets ^
-    --collect-all=PySide6 ^
+    --collect-submodules=PySide6.QtCore ^
+    --collect-submodules=PySide6.QtGui ^
+    --collect-submodules=PySide6.QtWidgets ^
     valve_master_pyside6.py
 
 if errorlevel 1 (
