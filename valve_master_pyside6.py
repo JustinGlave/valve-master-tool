@@ -193,14 +193,13 @@ class BadgeLabel(QLabel):
 
     def set_kind(self, kind: str) -> None:
         self._kind = kind
-        # FIX: corrected color assignment — bg is the pill background (dark),
-        # fg is the text color (light), border is the accent ring.
+        # Light-theme pill badges: fg=text color, bg=pill fill, border=accent ring
         styles = {
-            "neutral": ("#94a3b8", "#1e293b", "#334155"),
-            "blue":    ("#93c5fd", "#1e3a5f", "#2563eb"),
-            "green":   ("#4ade80", "#14301f", "#16a34a"),
-            "red":     ("#f87171", "#3b1010", "#dc2626"),
-            "gold":    ("#fbbf24", "#3b2500", "#f59e0b"),
+            "neutral": ("#191919", "#c3c6ce", "#a8acb8"),
+            "blue":    ("#ffffff", "#487cff", "#3068ee"),
+            "green":   ("#ffffff", "#22c55e", "#16a34a"),
+            "red":     ("#ffffff", "#ef4444", "#dc2626"),
+            "gold":    ("#ffffff", "#f59e0b", "#d97706"),
         }
         fg, bg, border = styles.get(kind, styles["neutral"])
         self.setStyleSheet(
@@ -273,26 +272,26 @@ class OptionPickerDialog(QDialog):
         layout = QVBoxLayout(self)
 
         header = QLabel(field_name)
-        header.setStyleSheet("font-size: 16px; font-weight: 700; color: #93c5fd;")
+        header.setStyleSheet("font-size: 13pt; font-weight: 700; color: #487cff;")
         layout.addWidget(header)
 
-        sub = QLabel("White = valid now • Grey = not valid now (reason shown)")
-        sub.setStyleSheet("color: #94a3b8;")
+        sub = QLabel("Dark = valid now • Grey = not valid now (reason shown)")
+        sub.setStyleSheet("color: #555b66; font-size: 10pt;")
         layout.addWidget(sub)
 
         self.list_widget = QListWidget()
         self.list_widget.setStyleSheet(
             """
             QListWidget {
-                background: #0b1220;
-                color: #e5e7eb;
-                border: 1px solid #334155;
+                background: #e1e3e8;
+                color: #191919;
+                border: 1px solid #b0b4be;
                 border-radius: 10px;
                 padding: 6px;
             }
             QListWidget::item {
                 padding: 10px;
-                border-bottom: 1px solid #1f2937;
+                border-bottom: 1px solid #c8cad0;
             }
             """
         )
@@ -312,7 +311,7 @@ class OptionPickerDialog(QDialog):
 
             item = QListWidgetItem(text)
             item.setData(Qt.ItemDataRole.UserRole, code)
-            item.setForeground(QColor("#f8fafc") if valid else QColor("#6b7280"))
+            item.setForeground(QColor("#191919") if valid else QColor("#9ca3af"))
             self.list_widget.addItem(item)
 
         self.list_widget.itemDoubleClicked.connect(self._handle_pick)
@@ -361,26 +360,26 @@ class OptionsEditorDialog(QDialog):
         layout = QVBoxLayout(self)
 
         header = QLabel("Options")
-        header.setStyleSheet("font-size: 16px; font-weight: 700; color: #93c5fd;")
+        header.setStyleSheet("font-size: 13pt; font-weight: 700; color: #487cff;")
         layout.addWidget(header)
 
-        sub = QLabel("Double-click an option to add/remove it. White = valid now • Grey = not valid now")
-        sub.setStyleSheet("color: #94a3b8;")
+        sub = QLabel("Double-click an option to add/remove it. Dark = valid now • Grey = not valid now")
+        sub.setStyleSheet("color: #555b66; font-size: 10pt;")
         layout.addWidget(sub)
 
         self.list_widget = QListWidget()
         self.list_widget.setStyleSheet(
             """
             QListWidget {
-                background: #0b1220;
-                color: #e5e7eb;
-                border: 1px solid #334155;
+                background: #e1e3e8;
+                color: #191919;
+                border: 1px solid #b0b4be;
                 border-radius: 10px;
                 padding: 6px;
             }
             QListWidget::item {
                 padding: 10px;
-                border-bottom: 1px solid #1f2937;
+                border-bottom: 1px solid #c8cad0;
             }
             """
         )
@@ -420,7 +419,7 @@ class OptionsEditorDialog(QDialog):
 
             item = QListWidgetItem(text)
             item.setData(Qt.ItemDataRole.UserRole, code)
-            item.setForeground(QColor("#f8fafc") if valid else QColor("#6b7280"))
+            item.setForeground(QColor("#191919") if valid else QColor("#9ca3af"))
             self.list_widget.addItem(item)
 
     def _toggle_item(self, item: QListWidgetItem) -> None:
@@ -470,25 +469,23 @@ class ClickableFieldCard(QPushButton):
         self.setStyleSheet(self._style())
 
     def _style(self) -> str:
-        # FIX: added a colored left-border accent stripe for clearer valid/invalid
-        # signalling that doesn't rely solely on background color
         if self.invalid:
             return """
             QPushButton#FieldCardButton {
                 text-align: left;
                 padding: 8px 8px 8px 12px;
-                background: #251417;
-                color: #fca5a5;
-                border: 1px solid #7f1d1d;
+                background: rgba(255, 220, 220, 220);
+                color: #7f1d1d;
+                border: 1px solid #fca5a5;
                 border-left: 3px solid #ef4444;
                 border-radius: 10px;
                 font-weight: 600;
-                font-size: 12px;
+                font-size: 10pt;
             }
             QPushButton#FieldCardButton:hover {
-                background: #31191d;
+                background: rgba(255, 200, 200, 220);
                 border: 1px solid #ef4444;
-                border-left: 3px solid #f87171;
+                border-left: 3px solid #dc2626;
             }
             """
         if self.editable:
@@ -496,36 +493,36 @@ class ClickableFieldCard(QPushButton):
             QPushButton#FieldCardButton {
                 text-align: left;
                 padding: 8px 8px 8px 12px;
-                background: #0b1220;
-                color: #e5e7eb;
-                border: 1px solid #243244;
+                background: rgba(220, 222, 228, 220);
+                color: #191919;
+                border: 1px solid #b0b4be;
                 border-left: 3px solid #22c55e;
                 border-radius: 10px;
                 font-weight: 600;
-                font-size: 12px;
+                font-size: 10pt;
             }
             QPushButton#FieldCardButton:hover {
-                background: #111a2b;
+                background: rgba(200, 202, 210, 220);
                 border: 1px solid #22c55e;
-                border-left: 3px solid #4ade80;
+                border-left: 3px solid #16a34a;
             }
             """
         return """
         QPushButton#FieldCardButton {
             text-align: left;
             padding: 8px 8px 8px 12px;
-            background: #0b1220;
-            color: #cbd5e1;
-            border: 1px solid #243244;
-            border-left: 3px solid #334155;
+            background: rgba(220, 222, 228, 220);
+            color: #191919;
+            border: 1px solid #b0b4be;
+            border-left: 3px solid #a8acb8;
             border-radius: 10px;
             font-weight: 600;
-            font-size: 12px;
+            font-size: 10pt;
         }
         QPushButton#FieldCardButton:hover {
-            background: #111a2b;
-            border: 1px solid #334155;
-            border-left: 3px solid #475569;
+            background: rgba(200, 202, 210, 220);
+            border: 1px solid #9098a8;
+            border-left: 3px solid #487cff;
         }
         """
 
@@ -539,8 +536,8 @@ class ValidationIssueRow(QFrame):
         self.setStyleSheet(
             """
             QFrame#ValidationIssueRow {
-                background: #2a0f0f;
-                border: 1px solid #7f1d1d;
+                background: rgba(255, 220, 220, 180);
+                border: 1px solid #fca5a5;
                 border-left: 3px solid #ef4444;
                 border-radius: 8px;
                 margin: 2px 0px;
@@ -553,11 +550,11 @@ class ValidationIssueRow(QFrame):
         layout.setSpacing(2)
 
         field_label = QLabel(field)
-        field_label.setStyleSheet("color: #fca5a5; font-weight: 700; font-size: 12px; background: transparent;")
+        field_label.setStyleSheet("color: #b91c1c; font-weight: 700; font-size: 10pt; background: transparent;")
         layout.addWidget(field_label)
 
         msg_label = QLabel(message)
-        msg_label.setStyleSheet("color: #e5e7eb; font-size: 11px; background: transparent;")
+        msg_label.setStyleSheet("color: #191919; font-size: 10pt; background: transparent;")
         msg_label.setWordWrap(True)
         layout.addWidget(msg_label)
 
@@ -617,7 +614,7 @@ class WatermarkWidget(QWidget):
         self.logo_pixmap_original: QPixmap | None = None
 
         opacity_effect = QGraphicsOpacityEffect(self.logo_label)
-        opacity_effect.setOpacity(0.18)
+        opacity_effect.setOpacity(0.25)
         self.logo_label.setGraphicsEffect(opacity_effect)
 
     def set_watermark(self, image_path: str) -> None:
@@ -895,7 +892,7 @@ class ValveMasterMainWindow(QMainWindow):
             "Builder Help:\n"
             "• Click ✏ field cards to change codes."
         )
-        helper.setStyleSheet("color: #94a3b8; line-height: 1.35;")
+        helper.setStyleSheet("color: #555b66; font-size: 10pt; line-height: 1.35;")
         helper.setWordWrap(True)
         self.input_card.add_widget(helper)
 
@@ -930,13 +927,13 @@ class ValveMasterMainWindow(QMainWindow):
         # Valid group
         valid_label = QLabel("✔  Valid Models")
         valid_label.setStyleSheet(
-            "color: #4ade80; font-weight: 700; font-size: 11px; "
+            "color: #16a34a; font-weight: 700; font-size: 10pt; "
             "padding: 4px 0px 2px 0px; background: transparent;"
         )
         self.test_models_card.add_widget(valid_label)
 
         self.valid_models_list = QListWidget()
-        self._configure_model_list(self.valid_models_list, VALID_TEST_MODELS, item_color="#4ade80")
+        self._configure_model_list(self.valid_models_list, VALID_TEST_MODELS, item_color="#16a34a")
         self.valid_models_list.setFixedHeight(MODEL_LIST_HEIGHT)
         self.valid_models_list.itemDoubleClicked.connect(self._load_model_from_list)
         self.test_models_card.add_widget(self.valid_models_list)
@@ -946,13 +943,13 @@ class ValveMasterMainWindow(QMainWindow):
         # Failing group
         failing_label = QLabel("✖  Failing Models")
         failing_label.setStyleSheet(
-            "color: #f87171; font-weight: 700; font-size: 11px; "
+            "color: #dc2626; font-weight: 700; font-size: 10pt; "
             "padding: 8px 0px 2px 0px; background: transparent;"
         )
         self.test_models_card.add_widget(failing_label)
 
         self.failing_models_list = QListWidget()
-        self._configure_model_list(self.failing_models_list, FAILING_TEST_MODELS, item_color="#f87171")
+        self._configure_model_list(self.failing_models_list, FAILING_TEST_MODELS, item_color="#dc2626")
         self.failing_models_list.setFixedHeight(MODEL_LIST_HEIGHT)
         self.failing_models_list.itemDoubleClicked.connect(self._load_model_from_list)
         self.test_models_card.add_widget(self.failing_models_list)
@@ -970,11 +967,11 @@ class ValveMasterMainWindow(QMainWindow):
         widget.setStyleSheet(
             f"""
             QListWidget {{
-                background: #0b1220;
-                border: 1px solid #1e293b;
+                background: #e1e3e8;
+                border: 1px solid #b0b4be;
                 border-radius: 8px;
                 padding: 3px;
-                font-size: 12px;
+                font-size: 10pt;
                 font-family: Consolas, monospace;
                 outline: none;
             }}
@@ -985,19 +982,19 @@ class ValveMasterMainWindow(QMainWindow):
                 min-height: {MODEL_LIST_ROW_HEIGHT}px;
             }}
             QListWidget::item:selected {{
-                background: #1d4ed8;
+                background: #487cff;
                 color: #ffffff;
             }}
             QListWidget::item:hover:!selected {{
-                background: #151f35;
+                background: rgba(72, 124, 255, 60);
             }}
             QScrollBar:vertical {{
-                background: transparent;
+                background: #d2d4da;
                 width: 5px;
                 margin: 2px;
             }}
             QScrollBar::handle:vertical {{
-                background: #334155;
+                background: #a8acb8;
                 border-radius: 2px;
                 min-height: 20px;
             }}
@@ -1058,7 +1055,7 @@ class ValveMasterMainWindow(QMainWindow):
         self._validation_scroll.setWidgetResizable(True)
         self._validation_scroll.setWidget(self._validation_scroll_widget)
         self._validation_scroll.setStyleSheet(
-            "QScrollArea { background: #0b1220; border: 1px solid #334155; border-radius: 10px; }"
+            "QScrollArea { background: #e1e3e8; border: 1px solid #b0b4be; border-radius: 10px; }"
         )
 
         self.debug_text = QTextEdit()
@@ -1074,160 +1071,204 @@ class ValveMasterMainWindow(QMainWindow):
     def _apply_styles(self) -> None:
         self.setStyleSheet(
             """
-            QMainWindow, QWidget {
-                background: #0f172a;
-                font-size: 12px;
+            QWidget {
+                font-family: Segoe UI, Arial, sans-serif;
+                font-size: 11pt;
             }
-            QMenuBar {
-                background: #111827;
-                color: #e5e7eb;
-                border-bottom: 1px solid #1f2937;
-                font-size: 12px;
+            QMainWindow, QMenuBar, QMenu, QStatusBar {
+                background: #d2d4da;
+                color: #191919;
             }
-            QMenuBar::item:selected {
-                background: #1f2937;
+            QMenuBar::item:selected, QMenu::item:selected {
+                background: #487cff;
+                color: white;
             }
             QMenu {
-                background: #111827;
-                color: #e5e7eb;
-                border: 1px solid #334155;
-                font-size: 12px;
-            }
-            QMenu::item:selected {
-                background: #1e3a8a;
+                border: 1px solid #b0b4be;
             }
             QStatusBar {
-                background: #111827;
-                color: #94a3b8;
-                border-top: 1px solid #1f2937;
-                font-size: 11px;
+                border-top: 1px solid #b0b4be;
+                font-size: 10pt;
+                color: #555b66;
             }
             QFrame#HeaderCard, QFrame#SectionCard {
-                background: rgba(17, 24, 39, 230);
-                border: 1px solid #1f2937;
+                background: rgba(220, 222, 228, 200);
+                border: 1px solid #b0b4be;
                 border-radius: 14px;
             }
             QLabel#AppTitle {
-                color: #e5e7eb;
-                font-size: 22px;
+                color: #111111;
+                font-size: 18pt;
                 font-weight: 700;
             }
             QLabel#SubTitle {
-                color: #94a3b8;
-                font-size: 11px;
+                color: #555b66;
+                font-size: 10pt;
             }
             QLabel#SectionTitle {
-                color: #93c5fd;
-                font-size: 13px;
-                font-weight: 700;
+                color: #191919;
+                font-size: 12pt;
+                font-weight: 600;
             }
             QLabel {
-                color: #e5e7eb;
+                color: #191919;
                 background: transparent;
             }
-            QLineEdit, QTextEdit, QTableWidget, QTabWidget::pane, QListWidget {
-                background: rgba(11, 18, 32, 235);
-                color: #e5e7eb;
-                border: 1px solid #334155;
+            QLineEdit, QTextEdit {
+                background: #e1e3e8;
+                color: #191919;
+                border: 1px solid #b0b4be;
                 border-radius: 10px;
-                padding: 6px;
-                selection-background-color: #1d4ed8;
-                font-size: 12px;
+                padding: 6px 8px;
+                selection-background-color: #487cff;
+                font-size: 11pt;
+            }
+            QTabWidget::pane {
+                background: rgba(220, 222, 228, 200);
+                border: 1px solid #b0b4be;
+                border-radius: 10px;
+            }
+            QListWidget {
+                background: #e1e3e8;
+                color: #191919;
+                border: 1px solid #b0b4be;
+                border-radius: 10px;
+                padding: 4px;
+                selection-background-color: #487cff;
+                font-size: 11pt;
+            }
+            QListWidget::item {
+                padding: 3px 6px;
+                min-height: 18px;
+                border-radius: 4px;
+            }
+            QListWidget::item:selected {
+                background: #487cff;
+                color: #ffffff;
             }
             QPushButton {
-                background: #1f2937;
-                color: #f8fafc;
-                border: 1px solid #334155;
-                border-radius: 8px;
-                padding: 4px 8px;
+                background: #c3c6ce;
+                color: #191919;
+                border: 1px solid #a8acb8;
+                border-radius: 10px;
+                padding: 6px 14px;
                 font-weight: 600;
-                font-size: 12px;
+                font-size: 10pt;
                 min-height: 24px;
             }
             QPushButton:hover {
-                background: #273449;
-                border: 1px solid #475569;
+                background: #b2b6c2;
+                border: 1px solid #9098a8;
+            }
+            QPushButton:pressed {
+                background: #a0a4b0;
             }
             QPushButton#PrimaryButton {
-                background: #2563eb;
-                border: 1px solid #3b82f6;
+                background: #487cff;
+                border: 1px solid #3068ee;
                 color: white;
             }
             QPushButton#PrimaryButton:hover {
-                background: #1d4ed8;
+                background: #3068ee;
             }
             QCheckBox {
-                color: #e5e7eb;
+                color: #191919;
                 spacing: 6px;
                 background: transparent;
-                font-size: 12px;
+                font-size: 11pt;
             }
             QTabBar::tab {
-                background: #111827;
-                color: #94a3b8;
-                padding: 6px 12px;
-                border: 1px solid #1f2937;
+                background: #c3c6ce;
+                color: #555b66;
+                padding: 6px 14px;
+                border: 1px solid #b0b4be;
                 border-top-left-radius: 8px;
                 border-top-right-radius: 8px;
                 margin-right: 4px;
-                font-size: 12px;
+                font-size: 10pt;
             }
             QTabBar::tab:selected {
-                color: #e5e7eb;
-                background: #1f2937;
-                border-color: #334155;
+                background: rgba(220, 222, 228, 200);
+                color: #191919;
+                border-bottom-color: transparent;
             }
             QTableWidget {
-                gridline-color: #334155;
-                alternate-background-color: #0f172a;
+                background: transparent;
+                color: #191919;
+                border: 1px solid #b0b4be;
+                border-radius: 10px;
+                padding: 4px;
+                selection-background-color: #487cff;
+                gridline-color: #b0b4be;
+                alternate-background-color: rgba(200, 202, 208, 180);
+            }
+            QTableWidget::item {
+                background: rgba(215, 217, 223, 180);
+                border: none;
+                padding: 4px 8px;
+            }
+            QTableWidget::item:selected {
+                background: rgba(72, 124, 255, 180);
+                color: white;
             }
             QHeaderView::section {
-                background: #111827;
-                color: #93c5fd;
-                border: 1px solid #1f2937;
-                padding: 4px;
+                background: rgba(195, 198, 206, 220);
+                color: #191919;
+                border: none;
+                border-right: 1px solid #b0b4be;
+                border-bottom: 1px solid #b0b4be;
+                padding: 6px 4px;
                 font-weight: 600;
-                font-size: 11px;
+                font-size: 10pt;
             }
-            QListWidget::item {
-                padding: 1px 4px;
-                min-height: 16px;
+            QScrollBar:vertical {
+                background: #d2d4da;
+                width: 8px;
+                margin: 2px;
             }
-            QListWidget::item:selected {
-                background: #1d4ed8;
-                color: #ffffff;
+            QScrollBar::handle:vertical {
+                background: #a8acb8;
                 border-radius: 4px;
+                min-height: 20px;
+            }
+            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+                height: 0px;
+            }
+            QScrollArea {
+                background: #e1e3e8;
+                border: 1px solid #b0b4be;
+                border-radius: 10px;
             }
             #UpdateBanner {
-                background: rgba(30, 60, 40, 220);
-                border-top: 1px solid #2d6a3f;
+                background: rgba(200, 240, 215, 220);
+                border-top: 1px solid #86efac;
             }
             #UpdateBanner QLabel#UpdateMsg {
-                color: #6ee7a0;
+                color: #14532d;
                 font-weight: 600;
-                font-size: 12px;
+                font-size: 11pt;
                 background: transparent;
             }
             #InstallBtn {
-                background: #2d6a3f;
-                border: 1px solid #3d8a52;
+                background: #22c55e;
+                border: 1px solid #16a34a;
                 color: white;
                 font-weight: 700;
             }
             #InstallBtn:hover {
-                background: #3d8a52;
+                background: #16a34a;
             }
             """
         )
 
-        self.model_entry.setMinimumHeight(28)
+        self.model_entry.setMinimumHeight(32)
         self.table_widget.setMinimumHeight(TABLE_MIN_HEIGHT)
         self.table_widget.verticalHeader().setDefaultSectionSize(28)
 
-        self.decode_button.setMaximumHeight(ACTION_BUTTON_HEIGHT)
-        self.clear_button.setMaximumHeight(ACTION_BUTTON_HEIGHT)
-        self.copy_button.setMaximumHeight(ACTION_BUTTON_HEIGHT)
-        self.save_button.setMaximumHeight(ACTION_BUTTON_HEIGHT)
+        self.decode_button.setMaximumHeight(ACTION_BUTTON_HEIGHT + 6)
+        self.clear_button.setMaximumHeight(ACTION_BUTTON_HEIGHT + 6)
+        self.copy_button.setMaximumHeight(ACTION_BUTTON_HEIGHT + 6)
+        self.save_button.setMaximumHeight(ACTION_BUTTON_HEIGHT + 6)
 
         self._update_table_columns()
 
@@ -1672,7 +1713,7 @@ class ValveMasterMainWindow(QMainWindow):
                 else:
                     item.setTextAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
                 if col_index == 3 and value:
-                    item.setBackground(QColor("#132238"))
+                    item.setBackground(QColor("#dbeafe"))
                 self.table_widget.setItem(row_index, col_index, item)
 
         self._update_table_columns()
@@ -1742,14 +1783,14 @@ class ValveMasterMainWindow(QMainWindow):
             rest = lines[1:]
             # Bold the first line if it looks like a note heading
             if first.startswith("Note") or first[0].isdigit():
-                first_html = f"<b style='color:#93c5fd;'>{first}</b>"
+                first_html = f"<b style='color:#487cff;'>{first}</b>"
             else:
                 first_html = first
             body = "<br>".join([first_html] + [l.replace("  ", "&nbsp;&nbsp;") for l in rest])
             html_parts.append(f"<p style='margin:0 0 10px 0; line-height:1.5;'>{body}</p>")
 
         self.notes_text.setHtml(
-            "<div style='font-size:12px; color:#e5e7eb; font-family:monospace;'>"
+            "<div style='font-size:11pt; color:#191919; font-family:Consolas,monospace;'>"
             + "".join(html_parts)
             + "</div>"
         )
@@ -1761,7 +1802,7 @@ class ValveMasterMainWindow(QMainWindow):
         if not validation_issues:
             ok_label = QLabel("✔  No validation issues")
             ok_label.setStyleSheet(
-                "color: #4ade80; font-weight: 700; font-size: 13px; padding: 12px; background: transparent;"
+                "color: #16a34a; font-weight: 700; font-size: 12pt; padding: 12px; background: transparent;"
             )
             self._validation_scroll_layout.addWidget(ok_label)
             return
@@ -1937,14 +1978,14 @@ class ValveMasterMainWindow(QMainWindow):
         layout.setSpacing(12)
 
         header = QLabel("Fetching release history from GitHub…")
-        header.setStyleSheet("font-size: 14px; font-weight: 700; color: #93c5fd;")
+        header.setStyleSheet("font-size: 13pt; font-weight: 700; color: #487cff;")
         layout.addWidget(header)
 
         text_area = QPlainTextEdit()
         text_area.setReadOnly(True)
         text_area.setStyleSheet(
-            "background: #0e1016; color: #7a8599; border: 1px solid #252b36; "
-            "border-radius: 8px; padding: 8px; font-family: Consolas, monospace; font-size: 12px;"
+            "background: #e1e3e8; color: #555b66; border: 1px solid #b0b4be; "
+            "border-radius: 8px; padding: 8px; font-family: Consolas, monospace; font-size: 10pt;"
         )
         layout.addWidget(text_area, 1)
 
@@ -2029,6 +2070,27 @@ class ValveMasterMainWindow(QMainWindow):
 def main() -> None:
     app = QApplication(sys.argv)
     app.setApplicationName(APP_NAME)
+    app.setStyle("Fusion")
+
+    from PySide6.QtGui import QPalette, QColor
+    palette = QPalette()
+    for role, color in [
+        (QPalette.ColorRole.Window,          QColor(210, 212, 218)),
+        (QPalette.ColorRole.WindowText,      QColor(25, 25, 25)),
+        (QPalette.ColorRole.Base,            QColor(225, 227, 232)),
+        (QPalette.ColorRole.AlternateBase,   QColor(200, 202, 208)),
+        (QPalette.ColorRole.ToolTipBase,     QColor(255, 255, 220)),
+        (QPalette.ColorRole.ToolTipText,     QColor(20, 20, 20)),
+        (QPalette.ColorRole.Text,            QColor(25, 25, 25)),
+        (QPalette.ColorRole.Button,          QColor(195, 198, 206)),
+        (QPalette.ColorRole.ButtonText,      QColor(25, 25, 25)),
+        (QPalette.ColorRole.BrightText,      QColor(180, 0, 0)),
+        (QPalette.ColorRole.Highlight,       QColor(72, 124, 255)),
+        (QPalette.ColorRole.HighlightedText, QColor(255, 255, 255)),
+        (QPalette.ColorRole.Link,            QColor(0, 90, 200)),
+    ]:
+        palette.setColor(role, color)
+    app.setPalette(palette)
 
     window = ValveMasterMainWindow()
     window.show()
