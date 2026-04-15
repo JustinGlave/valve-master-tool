@@ -1027,6 +1027,7 @@ class ValveMasterMainWindow(QMainWindow):
         self.table_widget.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.table_widget.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.table_widget.setMinimumHeight(TABLE_MIN_HEIGHT)
+        self.table_widget.setMaximumHeight(TABLE_MIN_HEIGHT)
         self.table_card.add_widget(self.table_widget)
         return self.table_card
 
@@ -1347,6 +1348,18 @@ class ValveMasterMainWindow(QMainWindow):
         self.table_widget.setColumnWidth(2, 95)
         self.table_widget.setColumnWidth(3, 110)
 
+    def _fit_table_height(self) -> None:
+        """Shrink the table to exactly fit its header + rows, no blank space."""
+        row_count = self.table_widget.rowCount()
+        if row_count == 0:
+            self.table_widget.setFixedHeight(TABLE_MIN_HEIGHT)
+            return
+        h = self.table_widget.horizontalHeader().height()
+        for i in range(row_count):
+            h += self.table_widget.rowHeight(i)
+        h += 4  # border
+        self.table_widget.setFixedHeight(h)
+
     # ------------------------------------------------------------------ #
     # Event / state handlers                                               #
     # ------------------------------------------------------------------ #
@@ -1440,6 +1453,7 @@ class ValveMasterMainWindow(QMainWindow):
         self._clear_validation_rows()
         self.debug_text.clear()
         self.table_widget.setRowCount(0)
+        self.table_widget.setFixedHeight(TABLE_MIN_HEIGHT)
         self.current_output_text = ""
         self.current_product_line = "UNKNOWN"
         self.current_data = {}
@@ -1786,6 +1800,7 @@ class ValveMasterMainWindow(QMainWindow):
                 self.table_widget.setItem(row_index, col_index, item)
 
         self._update_table_columns()
+        self._fit_table_height()
 
     def decode_and_display(self) -> None:
         """Explicit decode triggered by button or Enter — shows error dialogs."""
