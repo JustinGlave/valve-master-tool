@@ -48,9 +48,8 @@ GITHUB_REPO  = "valve-master-tool"
 EXE_NAME     = "ValveMasterTool.exe"
 # ──────────────────────────────────────────────────────────────────────────────
 
-RELEASES_API     = f"https://api.github.com/repos/{GITHUB_OWNER}/{GITHUB_REPO}/releases/latest"
-ALL_RELEASES_URL = f"https://api.github.com/repos/{GITHUB_OWNER}/{GITHUB_REPO}/releases"
-REQUEST_TIMEOUT  = 8  # seconds
+RELEASES_API    = f"https://api.github.com/repos/{GITHUB_OWNER}/{GITHUB_REPO}/releases/latest"
+REQUEST_TIMEOUT = 8  # seconds
 
 HEADERS = {
     "Accept": "application/vnd.github+json",
@@ -93,12 +92,21 @@ def check_for_update() -> Optional[UpdateInfo]:
         if _parse_version(latest_tag) <= _parse_version(__version__):
             return None  # already up to date
 
-        # Find the .zip asset
+        # Find the exe-only zip (not the full install zip)
         assets = data.get("assets", [])
         zip_asset = next(
-            (a for a in assets if a.get("name", "").lower().endswith(".zip")),
+            (a for a in assets
+             if a.get("name", "").lower() == "valvemastertool.zip"),
             None,
         )
+        # Fallback: any zip that isn't the full install
+        if zip_asset is None:
+            zip_asset = next(
+                (a for a in assets
+                 if a.get("name", "").lower().endswith(".zip")
+                 and "fullinstall" not in a.get("name", "").lower()),
+                None,
+            )
         if zip_asset is None:
             logger.warning("New release %s found but no .zip asset attached.", latest_tag)
             return None
