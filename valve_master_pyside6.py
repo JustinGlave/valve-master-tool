@@ -1016,8 +1016,9 @@ class ValveMasterMainWindow(QMainWindow):
             ["Size", "Single CFM", "Dual CFM", "Pressure Drop"]
         )
         header = self.table_widget.horizontalHeader()
-        for col in range(4):
+        for col in range(3):
             header.setSectionResizeMode(col, QHeaderView.ResizeMode.Fixed)
+        header.setSectionResizeMode(3, QHeaderView.ResizeMode.Stretch)
 
         self.table_widget.verticalHeader().setVisible(False)
         self.table_widget.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
@@ -1346,7 +1347,7 @@ class ValveMasterMainWindow(QMainWindow):
         self.table_widget.setColumnWidth(0, 52)
         self.table_widget.setColumnWidth(1, 95)
         self.table_widget.setColumnWidth(2, 95)
-        self.table_widget.setColumnWidth(3, 110)
+        # column 3 (Pressure Drop) is Stretch — no fixed width needed
 
     def _fit_table_height(self) -> None:
         """Shrink the table to exactly fit its header + rows, no blank space."""
