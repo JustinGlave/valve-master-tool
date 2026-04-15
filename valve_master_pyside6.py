@@ -244,6 +244,10 @@ class BadgeLabel(QLabel):
         self.setMinimumHeight(26)
         self.set_kind(kind)
 
+    @property
+    def kind(self) -> str:
+        return self._kind
+
     def set_kind(self, kind: str) -> None:
         self._kind = kind
         if _DARK_MODE:
@@ -1967,6 +1971,7 @@ class ValveMasterMainWindow(QMainWindow):
 
     def _toggle_dark_mode(self) -> None:
         app = QApplication.instance()
+        assert isinstance(app, QApplication)
         dark = self._dark_mode_action.isChecked()
         if dark:
             apply_dark_theme(app)
@@ -1980,9 +1985,9 @@ class ValveMasterMainWindow(QMainWindow):
         self._apply_styles()
 
         # Badges
-        self.mode_badge.set_kind(self.mode_badge._kind)
-        self.product_badge.set_kind(self.product_badge._kind)
-        self.validation_badge.set_kind(self.validation_badge._kind)
+        self.mode_badge.set_kind(self.mode_badge.kind)
+        self.product_badge.set_kind(self.product_badge.kind)
+        self.validation_badge.set_kind(self.validation_badge.kind)
 
         # Helper label
         self._apply_helper_style()
