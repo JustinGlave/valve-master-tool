@@ -7,8 +7,8 @@ import urllib.error
 import urllib.request
 from typing import Callable
 
-from PySide6.QtCore import Qt, QSettings, QSize, QTimer, Signal
-from PySide6.QtGui import QAction, QColor, QGuiApplication, QIcon, QPalette, QPixmap
+from PySide6.QtCore import Qt, QSettings, QSize, QTimer, QUrl, Signal
+from PySide6.QtGui import QAction, QColor, QDesktopServices, QGuiApplication, QIcon, QPalette, QPixmap
 from PySide6.QtWidgets import (
     QApplication,
     QCheckBox,
@@ -883,6 +883,14 @@ class ValveMasterMainWindow(QMainWindow):
         version_history_action = QAction("Version History && Recent Updates", self)
         version_history_action.triggered.connect(self.show_version_history)
         help_menu.addAction(version_history_action)
+
+        help_menu.addSeparator()
+
+        email_action = QAction("Email Support", self)
+        email_action.triggered.connect(self._email_support)
+        help_menu.addAction(email_action)
+
+        help_menu.addSeparator()
 
         about_action = QAction("About", self)
         about_action.triggered.connect(self.show_about)
@@ -2220,6 +2228,10 @@ class ValveMasterMainWindow(QMainWindow):
             header.setText("Version History")
 
         dialog.exec()
+
+    @staticmethod
+    def _email_support() -> None:
+        QDesktopServices.openUrl(QUrl("mailto:justinglave@gmail.com"))
 
     def show_about(self) -> None:
         QMessageBox.information(
