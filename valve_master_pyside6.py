@@ -12,6 +12,7 @@ from PySide6.QtGui import QAction, QColor, QDesktopServices, QGuiApplication, QI
 from PySide6.QtWidgets import (
     QApplication,
     QCheckBox,
+    QComboBox,
     QDialog,
     QFileDialog,
     QFrame,
@@ -708,6 +709,154 @@ class UpdateBanner(QFrame):
         layout.addWidget(dismiss_btn)
 
 
+class CfmCalculatorDialog(QDialog):
+    """CFM / Face Velocity calculator.
+
+    Equation:  CFM = (Length × Width / 144) × Face Velocity Setpoint
+    Rearranged: Face Velocity = CFM × 144 / (Length × Width)
+    """
+
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.setWindowTitle("CFM / Face Velocity Calculator")
+        self.setMinimumWidth(380)
+        self.setMaximumWidth(460)
+
+        layout = QVBoxLayout(self)
+        layout.setSpacing(14)
+
+        # ── Header ──────────────────────────────────────────────
+        title = QLabel("CFM / Face Velocity Calculator")
+        title.setStyleSheet("font-size: 13pt; font-weight: 700; color: #487cff;")
+        layout.addWidget(title)
+
+        sub_color = "#999999" if _DARK_MODE else "#555b66"
+        sub = QLabel("CFM  =  (L \u00d7 W \u00f7 144) \u00d7 Face Velocity")
+        sub.setStyleSheet(f"color: {sub_color}; font-size: 10pt;")
+        layout.addWidget(sub)
+
+        # ── Mode selector ────────────────────────────────────────
+        mode_row = QHBoxLayout()
+        mode_label = QLabel("Solve for:")
+        mode_label.setStyleSheet("font-weight: 600;")
+        self._mode_combo = QComboBox()
+        self._mode_combo.addItems(["CFM", "Face Velocity Setpoint"])
+        self._mode_combo.currentIndexChanged.connect(self._on_mode_changed)
+        mode_row.addWidget(mode_label)
+        mode_row.addWidget(self._mode_combo)
+        mode_row.addStretch(1)
+        layout.addLayout(mode_row)
+
+        # ── Input grid ───────────────────────────────────────────
+        grid = QGridLayout()
+        grid.setVerticalSpacing(10)
+        grid.setHorizontalSpacing(12)
+
+        def _make_input() -> QLineEdit:
+            w = QLineEdit()
+            w.setPlaceholderText("0")
+            w.setFixedHeight(32)
+            return w
+
+        grid.addWidget(QLabel("Length (in):"), 0, 0)
+        self._length = _make_input()
+        grid.addWidget(self._length, 0, 1)
+
+        grid.addWidget(QLabel("Width (in):"), 1, 0)
+        self._width = _make_input()
+        grid.addWidget(self._width, 1, 1)
+
+        self._fv_label = QLabel("Face Velocity (fpm):")
+        self._fv_input = _make_input()
+        grid.addWidget(self._fv_label, 2, 0)
+        grid.addWidget(self._fv_input, 2, 1)
+
+        self._cfm_label = QLabel("CFM:")
+        self._cfm_input = _make_input()
+        grid.addWidget(self._cfm_label, 3, 0)
+        grid.addWidget(self._cfm_input, 3, 1)
+
+        layout.addLayout(grid)
+
+        # ── Calculate button ─────────────────────────────────────
+        self._calc_btn = QPushButton("Calculate")
+        self._calc_btn.setFixedHeight(34)
+        self._calc_btn.setStyleSheet(
+            "QPushButton { background: #487cff; color: white; font-weight: 700; border-radius: 6px; }"
+            "QPushButton:hover { background: #3a6be0; }"
+        )
+        self._calc_btn.clicked.connect(self._calculate)
+        layout.addWidget(self._calc_btn)
+
+        # ── Result display ───────────────────────────────────────
+        result_bg     = "#1e1e1e" if _DARK_MODE else "#d8dae0"
+        result_border = "#3a3a3a" if _DARK_MODE else "#b0b4be"
+        result_text   = "#e6e6e6" if _DARK_MODE else "#191919"
+        self._result_label = QLabel("")
+        self._result_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._result_label.setMinimumHeight(52)
+        self._result_label.setStyleSheet(
+            f"background: {result_bg}; color: {result_text}; border: 1px solid {result_border};"
+            f"border-radius: 8px; font-size: 13pt; font-weight: 700; padding: 6px;"
+        )
+        layout.addWidget(self._result_label)
+
+        # ── Close button ─────────────────────────────────────────
+        close_row = QHBoxLayout()
+        close_row.addStretch(1)
+        close_btn = QPushButton("Close")
+        close_btn.clicked.connect(self.reject)
+        close_row.addWidget(close_btn)
+        layout.addLayout(close_row)
+
+        self._on_mode_changed(0)  # set initial visibility
+
+    def _on_mode_changed(self, index: int) -> None:
+        solving_cfm = (index == 0)
+        self._fv_label.setVisible(solving_cfm)
+        self._fv_input.setVisible(solving_cfm)
+        self._cfm_label.setVisible(not solving_cfm)
+        self._cfm_input.setVisible(not solving_cfm)
+        self._result_label.setText("")
+
+    def _calculate(self) -> None:
+        try:
+            length = float(self._length.text())
+            width  = float(self._width.text())
+        except ValueError:
+            self._result_label.setText("Enter valid Length and Width values.")
+            self._result_label.setStyleSheet(self._result_label.styleSheet().replace("#487cff", "#cc3333"))
+            return
+
+        area = (length * width) / 144.0
+        if area <= 0:
+            self._result_label.setText("Length and Width must be greater than 0.")
+            return
+
+        solving_cfm = (self._mode_combo.currentIndex() == 0)
+        try:
+            if solving_cfm:
+                fv = float(self._fv_input.text())
+                cfm = area * fv
+                self._result_label.setText(f"CFM  =  {cfm:,.1f}")
+            else:
+                cfm = float(self._cfm_input.text())
+                fv = cfm / area
+                self._result_label.setText(f"Face Velocity  =  {fv:,.1f} fpm")
+        except ValueError:
+            name = "Face Velocity" if solving_cfm else "CFM"
+            self._result_label.setText(f"Enter a valid {name} value.")
+            return
+
+        result_bg     = "#1e1e1e" if _DARK_MODE else "#d8dae0"
+        result_border = "#487cff"
+        result_text   = "#487cff"
+        self._result_label.setStyleSheet(
+            f"background: {result_bg}; color: {result_text}; border: 2px solid {result_border};"
+            f"border-radius: 8px; font-size: 13pt; font-weight: 700; padding: 6px;"
+        )
+
+
 class WatermarkWidget(QWidget):
     def __init__(self) -> None:
         super().__init__()
@@ -953,6 +1102,16 @@ class ValveMasterMainWindow(QMainWindow):
         self.product_badge = BadgeLabel("Product: —", "blue")
         self.validation_badge = BadgeLabel("No validation run yet", "neutral")
 
+        cfm_btn = QPushButton("CFM / FV Calc")
+        cfm_btn.setFixedHeight(30)
+        cfm_btn.setStyleSheet(
+            "QPushButton { background: #487cff; color: white; font-weight: 700;"
+            " border-radius: 6px; padding: 0 12px; }"
+            "QPushButton:hover { background: #3a6be0; }"
+        )
+        cfm_btn.clicked.connect(self._open_cfm_calculator)
+
+        layout.addWidget(cfm_btn)
         layout.addWidget(self.mode_badge)
         layout.addWidget(self.product_badge)
         layout.addWidget(self.validation_badge)
@@ -2228,6 +2387,10 @@ class ValveMasterMainWindow(QMainWindow):
             header.setText("Version History")
 
         dialog.exec()
+
+    def _open_cfm_calculator(self) -> None:
+        dlg = CfmCalculatorDialog(self)
+        dlg.exec()
 
     @staticmethod
     def _email_support() -> None:
