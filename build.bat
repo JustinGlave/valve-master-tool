@@ -41,9 +41,8 @@ pyinstaller ^
     --windowed ^
     --icon=Normal_red.ico ^
     --name=ValveMasterTool ^
-    --add-data="Normal_red.ico;." ^
-    --add-data="Transparent_red.png;." ^
     --add-data="version.py;." ^
+    --add-data="assets.py;." ^
     --collect-submodules=PySide6.QtCore ^
     --collect-submodules=PySide6.QtGui ^
     --collect-submodules=PySide6.QtWidgets ^
@@ -80,15 +79,15 @@ if errorlevel 1 (
     exit /b 1
 )
 
-REM ── Step 3: Zip (exe + assets — for auto-updater) ──────────
+REM ── Step 3: Zip (exe only — for auto-updater) ───────────────
 echo.
-echo [3/4] Creating ValveMasterTool.zip (exe + assets)...
+echo [3/4] Creating ValveMasterTool.zip (exe only)...
 if exist dist\ValveMasterTool.zip del dist\ValveMasterTool.zip
 powershell -ExecutionPolicy Bypass -Command ^
-    "Add-Type -AssemblyName System.IO.Compression.FileSystem; $z = [System.IO.Compression.ZipFile]::Open('dist\ValveMasterTool.zip', 'Create'); [System.IO.Compression.ZipFileExtensions]::CreateEntryFromFile($z, 'dist\ValveMasterTool\ValveMasterTool.exe', 'ValveMasterTool.exe'); [System.IO.Compression.ZipFileExtensions]::CreateEntryFromFile($z, 'dist\ValveMasterTool\_internal\Normal_red.ico', '_internal/Normal_red.ico'); [System.IO.Compression.ZipFileExtensions]::CreateEntryFromFile($z, 'dist\ValveMasterTool\_internal\Transparent_red.png', '_internal/Transparent_red.png'); $z.Dispose()"
+    "Compress-Archive -Path 'dist\ValveMasterTool\ValveMasterTool.exe' -DestinationPath 'dist\ValveMasterTool.zip' -Force"
 
 if errorlevel 1 (
-    echo ERROR: Zip failed.
+    echo ERROR: Zip (exe only) failed.
     pause
     exit /b 1
 )

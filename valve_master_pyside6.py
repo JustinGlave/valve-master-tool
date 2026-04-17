@@ -55,6 +55,15 @@ try:
 except ImportError:
     __version__ = "0.0.0"
 from updater import UpdateInfo, check_for_update, download_and_apply
+try:
+    from assets import ICO_B64, PNG_B64
+    import base64 as _base64
+    from PySide6.QtCore import QByteArray
+    _ICO_BYTES = QByteArray(_base64.b64decode(ICO_B64))
+    _PNG_BYTES = QByteArray(_base64.b64decode(PNG_B64))
+except ImportError:
+    _ICO_BYTES = None
+    _PNG_BYTES = None
 
 # ── Theme ─────────────────────────────────────────────────────────────────────
 _DARK_MODE: bool = True  # default dark; overridden by QSettings at startup
@@ -869,6 +878,13 @@ class WatermarkWidget(QWidget):
         opacity_effect.setOpacity(0.25)
         self.logo_label.setGraphicsEffect(opacity_effect)
 
+    def set_watermark_bytes(self, data) -> None:
+        px = QPixmap()
+        px.loadFromData(data)
+        if not px.isNull():
+            self.logo_pixmap_original = px
+            self._update_watermark()
+
     def set_watermark(self, image_path: str) -> None:
         if os.path.exists(image_path):
             self.logo_pixmap_original = QPixmap(image_path)
@@ -959,28 +975,32 @@ class ValveMasterMainWindow(QMainWindow):
     # ------------------------------------------------------------------ #
 
     def _load_window_icon(self) -> None:
-        icon_path = os.path.join(BASE_DIR, ICON_FILE)
-        if os.path.exists(icon_path):
-            # Load the .ico as a pixmap scaled to 256x256 so the OS can
-            # pick a large size for the title bar and taskbar
-            pixmap = QPixmap(icon_path)
-            if not pixmap.isNull():
-                icon = QIcon()
-                for size in (16, 32, 48, 64, 128, 256):
-                    icon.addPixmap(
-                        pixmap.scaled(size, size,
-                                      Qt.AspectRatioMode.KeepAspectRatio,
-                                      Qt.TransformationMode.SmoothTransformation)
-                    )
-                self.setWindowIcon(icon)
-                # Also set on the application so taskbar picks it up
-                app = QApplication.instance()
-                if isinstance(app, QApplication):
-                    app.setWindowIcon(icon)
+        pixmap = QPixmap()
+        if _ICO_BYTES is not None:
+            pixmap.loadFromData(_ICO_BYTES)
+        if pixmap.isNull():
+            icon_path = os.path.join(BASE_DIR, ICON_FILE)
+            if os.path.exists(icon_path):
+                pixmap = QPixmap(icon_path)
+        if not pixmap.isNull():
+            icon = QIcon()
+            for size in (16, 32, 48, 64, 128, 256):
+                icon.addPixmap(
+                    pixmap.scaled(size, size,
+                                  Qt.AspectRatioMode.KeepAspectRatio,
+                                  Qt.TransformationMode.SmoothTransformation)
+                )
+            self.setWindowIcon(icon)
+            app = QApplication.instance()
+            if isinstance(app, QApplication):
+                app.setWindowIcon(icon)
 
     def _load_background_watermark(self) -> None:
-        bg_path = os.path.join(BASE_DIR, BACKGROUND_FILE)
-        self.watermark_widget.set_watermark(bg_path)
+        if _PNG_BYTES is not None:
+            self.watermark_widget.set_watermark_bytes(_PNG_BYTES)
+        else:
+            bg_path = os.path.join(BASE_DIR, BACKGROUND_FILE)
+            self.watermark_widget.set_watermark(bg_path)
         # Force a raise after all child panels have been laid out
         self.watermark_widget.logo_label.raise_()
 
