@@ -957,6 +957,7 @@ class ValveMasterMainWindow(QMainWindow):
         self._build_ui()
         self._load_background_watermark()
         self._apply_styles()
+        self._update_theme_btn_icon()
 
         # Startup checks (after UI is built)
         self._check_sync_folder()
@@ -1137,7 +1138,13 @@ class ValveMasterMainWindow(QMainWindow):
         )
         cfm_btn.clicked.connect(self._open_cfm_calculator)
 
+        self._theme_btn = QPushButton()
+        self._theme_btn.setFixedSize(30, 30)
+        self._theme_btn.setToolTip("Toggle light / dark mode")
+        self._theme_btn.clicked.connect(self._toggle_theme_btn)
+
         layout.addWidget(cfm_btn)
+        layout.addWidget(self._theme_btn)
         layout.addWidget(self.mode_badge)
         layout.addWidget(self.product_badge)
         layout.addWidget(self.validation_badge)
@@ -1190,6 +1197,13 @@ class ValveMasterMainWindow(QMainWindow):
         row2.addWidget(self.copy_button)
         row2.addWidget(self.save_button)
         self.input_card.add_layout(row2)
+
+        row3 = QHBoxLayout()
+        row3.setSpacing(8)
+        self.export_parts_button = QPushButton("Export Parts List")
+        self.export_parts_button.clicked.connect(self._export_parts_list)
+        row3.addWidget(self.export_parts_button)
+        self.input_card.add_layout(row3)
 
         self._builder_helper = QLabel(
             "Builder Help:\n"
@@ -2189,9 +2203,79 @@ class ValveMasterMainWindow(QMainWindow):
         QSettings("ATSInc", "ValveMasterTool").setValue("darkMode", "true" if dark else "false")
         self._refresh_theme_dependent_styles()
 
+    def _toggle_theme_btn(self) -> None:
+        self._dark_mode_action.setChecked(not _DARK_MODE)
+        self._toggle_dark_mode()
+
+    def _update_theme_btn_icon(self) -> None:
+        self._theme_btn.setText("☀" if _DARK_MODE else "☾")
+        self._theme_btn.setStyleSheet(
+            "QPushButton { font-size: 14px; border-radius: 6px; border: 1px solid "
+            + ("#334155;" if _DARK_MODE else "#b0b4be;")
+            + " background: " + ("#1e293b;" if _DARK_MODE else "#d2d4da;")
+            + " color: " + ("#e2e8f0;" if _DARK_MODE else "#191919;")
+            + " }"
+            "QPushButton:hover { background: " + ("#334155;" if _DARK_MODE else "#b0b4be;") + " }"
+        )
+
+    def _export_parts_list(self) -> None:
+        if self.current_parsed_model is None:
+            QMessageBox.information(self, "No Model", "Decode a model number first.")
+            return
+
+        seen: dict[str, dict] = {}
+        for field_name in FIELD_TO_LOGICAL_FIELD:
+            for part in self._extract_spare_parts_for_field(self.current_parsed_model, field_name):
+                pn = part.get("part_number", "")
+                if not pn:
+                    continue
+                if pn in seen:
+                    seen[pn]["quantity"] = seen[pn].get("quantity", 1) + part.get("quantity", 1)
+                else:
+                    seen[pn] = dict(part)
+
+        if self.current_parsed_model.options:
+            for opt in self.current_parsed_model.options:
+                for part in self._extract_spare_parts_for_option(self.current_parsed_model, opt):
+                    pn = part.get("part_number", "")
+                    if not pn:
+                        continue
+                    if pn in seen:
+                        seen[pn]["quantity"] = seen[pn].get("quantity", 1) + part.get("quantity", 1)
+                    else:
+                        seen[pn] = dict(part)
+
+        if not seen:
+            QMessageBox.information(self, "No Parts", "No spare parts found for this model.")
+            return
+
+        model_str = self.model_entry.text().strip().upper()
+        default_name = f"{model_str}_parts.csv" if model_str else "parts.csv"
+        path, _ = QFileDialog.getSaveFileName(self, "Export Parts List", default_name, "CSV Files (*.csv)")
+        if not path:
+            return
+
+        import csv
+        try:
+            with open(path, "w", newline="", encoding="utf-8") as f:
+                writer = csv.writer(f)
+                writer.writerow(["Part Number", "Description", "Quantity", "Notes"])
+                for part in seen.values():
+                    notes = "; ".join(part.get("notes", []) or [])
+                    writer.writerow([
+                        part.get("part_number", ""),
+                        part.get("description", ""),
+                        part.get("quantity", 1),
+                        notes,
+                    ])
+            QMessageBox.information(self, "Exported", f"Parts list saved to:\n{path}")
+        except Exception as exc:
+            QMessageBox.critical(self, "Export Error", f"Could not save file:\n{exc}")
+
     def _refresh_theme_dependent_styles(self) -> None:
         """Re-apply all theme-dependent styles after a dark/light mode switch."""
         self._apply_styles()
+        self._update_theme_btn_icon()
 
         # Badges
         self.mode_badge.set_kind(self.mode_badge.kind)
