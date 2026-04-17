@@ -109,8 +109,8 @@ def apply_dark_theme(app: QApplication) -> None:
 
 # ──────────────────────────────────────────────────────────────────────────────
 
-ICON_FILE = "valve_master.ico"
-BACKGROUND_FILE = "vmt_logo_transparent.png"
+ICON_FILE = "Normal_red.ico"
+BACKGROUND_FILE = "Transparent_red.png"
 
 # Resolve the directory containing assets (the .ico and .png).
 # When running as a PyInstaller --onefile bundle, files are extracted to a
@@ -1071,6 +1071,12 @@ class ValveMasterMainWindow(QMainWindow):
         self.main_splitter.setStretchFactor(1, 7)
         self.main_splitter.setStretchFactor(2, 4)
         self.main_splitter.setSizes([320, 840, 380])
+
+        right_panel = self.main_splitter.widget(2)
+        right_panel.setFixedWidth(380)
+        handle = self.main_splitter.handle(2)
+        handle.setEnabled(False)
+        handle.setCursor(Qt.CursorShape.ArrowCursor)
 
         # Update banner — hidden until a new version is detected
         self._update_banner = None

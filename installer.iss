@@ -32,7 +32,7 @@ UninstallDisplayName={#MyAppName}
 UninstallDisplayIcon={app}\{#MyAppExeName}
 
 ; Installer icon / branding
-SetupIconFile=valve_master.ico
+SetupIconFile=Normal_red.ico
 WizardImageFile=
 WizardSmallImageFile=
 

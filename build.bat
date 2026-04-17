@@ -39,10 +39,10 @@ echo [1/4] Running PyInstaller...
 pyinstaller ^
     --onedir ^
     --windowed ^
-    --icon=valve_master.ico ^
+    --icon=Normal_red.ico ^
     --name=ValveMasterTool ^
-    --add-data="valve_master.ico;." ^
-    --add-data="vmt_logo_transparent.png;." ^
+    --add-data="Normal_red.ico;." ^
+    --add-data="Transparent_red.png;." ^
     --add-data="version.py;." ^
     --collect-submodules=PySide6.QtCore ^
     --collect-submodules=PySide6.QtGui ^
