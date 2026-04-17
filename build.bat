@@ -42,7 +42,6 @@ pyinstaller ^
     --icon=Normal_red.ico ^
     --name=ValveMasterTool ^
     --add-data="version.py;." ^
-    --add-data="assets.py;." ^
     --collect-submodules=PySide6.QtCore ^
     --collect-submodules=PySide6.QtGui ^
     --collect-submodules=PySide6.QtWidgets ^
