@@ -188,6 +188,7 @@ def download_and_apply(info: UpdateInfo, progress_callback=None) -> None:
     bat_fd, bat_path_str = tempfile.mkstemp(suffix=".bat")
     bat_path = Path(bat_path_str)
 
+    internal_dir = current_exe.parent / "_internal"
     bat_content = f"""@echo off
 :wait
 tasklist /FI "PID eq {pid}" 2>nul | find "{pid}" >nul
@@ -195,7 +196,7 @@ if not errorlevel 1 (
     timeout /t 1 /nobreak >nul
     goto wait
 )
-powershell -ExecutionPolicy Bypass -Command "Add-Type -AssemblyName System.IO.Compression.FileSystem; $zip = [System.IO.Compression.ZipFile]::OpenRead('{tmp_zip}'); $entry = $zip.Entries | Where-Object {{ $_.Name -eq '{EXE_NAME}' }} | Select-Object -First 1; if ($entry) {{ [System.IO.Compression.ZipFileExtensions]::ExtractToFile($entry, '{new_exe}', $true) }}; $zip.Dispose()"
+powershell -ExecutionPolicy Bypass -Command "Add-Type -AssemblyName System.IO.Compression.FileSystem; $zip = [System.IO.Compression.ZipFile]::OpenRead('{tmp_zip}'); foreach ($entry in $zip.Entries) {{ if ($entry.Name -eq '{EXE_NAME}') {{ [System.IO.Compression.ZipFileExtensions]::ExtractToFile($entry, '{new_exe}', $true) }} elseif ($entry.FullName -like '_internal/*' -and $entry.Name -ne '') {{ $dest = Join-Path '{internal_dir}' $entry.Name; [System.IO.Compression.ZipFileExtensions]::ExtractToFile($entry, $dest, $true) }} }}; $zip.Dispose()"
 del "{tmp_zip}"
 start "" "{new_exe}"
 del "%~f0"
