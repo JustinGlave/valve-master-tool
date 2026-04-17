@@ -1,4 +1,4 @@
-# Auto-generated — do not edit by hand.
+# Auto-generated - do not edit by hand.
 ICO_B64 = (
     "AAABAAEAICAAAAAAIAAXCAAAFgAAAIlQTkcNChoKAAAADUlIRFIAAAAgAAAAIAgGAAAAc3p69AAAB95JREFUeJxdl3uMnVUVxX/7"
     "3O/eO70z0+mTtlDo0DZCrW2qCLSUSgJRrG3lofiKImJSoxFtIsQU2xipJJgaE2kMgmgIYtWmqQFjLBUQInSsYBFoG7Ut9pWWPplH"
