@@ -1,12 +1,12 @@
 @echo off
 REM ============================================================
-REM  build.bat — ValveMasterTool build script
+REM  build.bat — PhoenixMasterTool build script
 REM
 REM  Steps:
-REM    1. PyInstaller  → dist\ValveMasterTool\ValveMasterTool.exe
-REM    2. Inno Setup   → dist\ValveMasterToolSetup.exe
-REM    3. Zip (exe)    → dist\ValveMasterTool.zip       (auto-updater)
-REM    4. Zip (full)   → dist\ValveMasterTool_FullInstall.zip (manual)
+REM    1. PyInstaller  → dist\PhoenixMasterTool\PhoenixMasterTool.exe
+REM    2. Inno Setup   → dist\PhoenixMasterToolSetup.exe
+REM    3. Zip (exe)    → dist\PhoenixMasterTool.zip       (auto-updater)
+REM    4. Zip (full)   → dist\PhoenixMasterTool_FullInstall.zip (manual)
 REM
 REM  Requires:
 REM    - PyInstaller  (pip install pyinstaller)
@@ -40,18 +40,47 @@ pyinstaller ^
     --onedir ^
     --windowed ^
     --icon=Normal_red.ico ^
-    --name=ValveMasterTool ^
+    --name=PhoenixMasterTool ^
     --add-data="version.py;." ^
+    --add-data="phoenix_style.qss;." ^
+    --add-data="inventory.py;." ^
     --collect-submodules=PySide6.QtCore ^
     --collect-submodules=PySide6.QtGui ^
     --collect-submodules=PySide6.QtWidgets ^
-    valve_master_pyside6.py
+    phoenix_master_pyside6.py
 
 if errorlevel 1 (
     echo.
     echo ERROR: PyInstaller failed. Check errors above.
     pause
     exit /b 1
+)
+
+REM ── Optional code-signing (runs only if VMT_SIGNING_CERT is set) ──
+REM Set these in your shell before invoking build.bat, e.g.:
+REM   set VMT_SIGNING_CERT=C:\path\to\cert.pfx
+REM   set VMT_SIGNING_PASSWORD=...
+REM   set SIGNTOOL=C:\Program Files (x86)\Windows Kits\10\bin\10.0.22621.0\x64\signtool.exe
+REM See GIT_SETUP.md for cert procurement and full instructions.
+if not "%VMT_SIGNING_CERT%"=="" (
+    if "%SIGNTOOL%"=="" (
+        if exist "%ProgramFiles(x86)%\Windows Kits\10\bin\10.0.22621.0\x64\signtool.exe" set SIGNTOOL=%ProgramFiles(x86)%\Windows Kits\10\bin\10.0.22621.0\x64\signtool.exe
+    )
+    if "%SIGNTOOL%"=="" (
+        echo WARNING: VMT_SIGNING_CERT is set but signtool.exe was not found.
+        echo          Install the Windows 10/11 SDK, or set %%SIGNTOOL%% explicitly.
+        echo          Skipping signing.
+    ) else (
+        echo Signing dist\PhoenixMasterTool\PhoenixMasterTool.exe...
+        "%SIGNTOOL%" sign /f "%VMT_SIGNING_CERT%" /p "%VMT_SIGNING_PASSWORD%" /tr http://timestamp.digicert.com /td sha256 /fd sha256 "dist\PhoenixMasterTool\PhoenixMasterTool.exe"
+        if errorlevel 1 (
+            echo ERROR: Code signing failed.
+            pause
+            exit /b 1
+        )
+    )
+) else (
+    echo [skip] Code signing disabled (set VMT_SIGNING_CERT to enable - see GIT_SETUP.md).
 )
 
 REM ── Step 2: Inno Setup ──────────────────────────────────────
@@ -78,12 +107,25 @@ if errorlevel 1 (
     exit /b 1
 )
 
+REM Sign the installer too if a cert is configured.
+if not "%VMT_SIGNING_CERT%"=="" (
+    if not "%SIGNTOOL%"=="" (
+        echo Signing dist\PhoenixMasterToolSetup.exe...
+        "%SIGNTOOL%" sign /f "%VMT_SIGNING_CERT%" /p "%VMT_SIGNING_PASSWORD%" /tr http://timestamp.digicert.com /td sha256 /fd sha256 "dist\PhoenixMasterToolSetup.exe"
+        if errorlevel 1 (
+            echo ERROR: Installer signing failed.
+            pause
+            exit /b 1
+        )
+    )
+)
+
 REM ── Step 3: Zip (exe only — for auto-updater) ───────────────
 echo.
-echo [3/4] Creating ValveMasterTool.zip (exe only)...
-if exist dist\ValveMasterTool.zip del dist\ValveMasterTool.zip
+echo [3/4] Creating PhoenixMasterTool.zip (exe only)...
+if exist dist\PhoenixMasterTool.zip del dist\PhoenixMasterTool.zip
 powershell -ExecutionPolicy Bypass -Command ^
-    "Compress-Archive -Path 'dist\ValveMasterTool\ValveMasterTool.exe' -DestinationPath 'dist\ValveMasterTool.zip' -Force"
+    "Compress-Archive -Path 'dist\PhoenixMasterTool\PhoenixMasterTool.exe' -DestinationPath 'dist\PhoenixMasterTool.zip' -Force"
 
 if errorlevel 1 (
     echo ERROR: Zip (exe only) failed.
@@ -93,10 +135,10 @@ if errorlevel 1 (
 
 REM ── Step 4: Zip (full folder — for manual installs) ─────────
 echo.
-echo [4/4] Creating ValveMasterTool_FullInstall.zip (full folder)...
-if exist dist\ValveMasterTool_FullInstall.zip del dist\ValveMasterTool_FullInstall.zip
+echo [4/4] Creating PhoenixMasterTool_FullInstall.zip (full folder)...
+if exist dist\PhoenixMasterTool_FullInstall.zip del dist\PhoenixMasterTool_FullInstall.zip
 powershell -ExecutionPolicy Bypass -Command ^
-    "Compress-Archive -Path 'dist\ValveMasterTool' -DestinationPath 'dist\ValveMasterTool_FullInstall.zip' -Force"
+    "Compress-Archive -Path 'dist\PhoenixMasterTool' -DestinationPath 'dist\PhoenixMasterTool_FullInstall.zip' -Force"
 
 if errorlevel 1 (
     echo ERROR: Zip (full install) failed.
@@ -109,9 +151,9 @@ echo.
 echo ============================================================
 echo  DONE  —  v%APP_VERSION%
 echo.
-echo  Installer : dist\ValveMasterToolSetup.exe   (new users)
-echo  Zip       : dist\ValveMasterTool.zip         (auto-updater)
-echo  Full zip  : dist\ValveMasterTool_FullInstall.zip (manual)
+echo  Installer : dist\PhoenixMasterToolSetup.exe   (new users)
+echo  Zip       : dist\PhoenixMasterTool.zip         (auto-updater)
+echo  Full zip  : dist\PhoenixMasterTool_FullInstall.zip (manual)
 echo ============================================================
 echo.
 echo Release checklist:
@@ -119,6 +161,6 @@ echo   1. Bump version.py
 echo   2. git add . ^&^& git commit -m "vX.X.X - description" ^&^& git push
 echo   3. GitHub ^> Releases ^> Draft new release
 echo   4. Tag: vX.X.X
-echo   5. Upload: ValveMasterToolSetup.exe  +  ValveMasterTool.zip
+echo   5. Upload: PhoenixMasterToolSetup.exe  +  PhoenixMasterTool.zip
 echo.
 pause

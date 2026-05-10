@@ -1,5 +1,5 @@
 """
-updater.py — GitHub-based auto-updater for ValveMasterTool.
+updater.py — GitHub-based auto-updater for PhoenixMasterTool.
 
 How it works
 ------------
@@ -44,8 +44,8 @@ logger = logging.getLogger(__name__)
 
 # ── CHANGE THESE to match your GitHub account / repo name ─────────────────────
 GITHUB_OWNER = "JustinGlave"
-GITHUB_REPO  = "valve-master-tool"
-EXE_NAME     = "ValveMasterTool.exe"
+GITHUB_REPO  = "phoenix-master-tool"
+EXE_NAME     = "PhoenixMasterTool.exe"
 # ──────────────────────────────────────────────────────────────────────────────
 
 RELEASES_API    = f"https://api.github.com/repos/{GITHUB_OWNER}/{GITHUB_REPO}/releases/latest"
@@ -63,6 +63,16 @@ class UpdateInfo:
     latest_version:  str
     download_url:    str
     release_notes:   str
+
+
+def _ps_single_quote(value: str) -> str:
+    """Escape a string for safe inclusion inside a PowerShell single-quoted literal.
+
+    PowerShell single-quoted strings escape "'" as "''". Without this, a path
+    such as "C:\\Users\\O'Brien\\..." would terminate the string mid-path and
+    break the extraction script.
+    """
+    return value.replace("'", "''")
 
 
 def _parse_version(tag: str) -> tuple[int, ...]:
@@ -174,6 +184,7 @@ def download_and_apply(info: UpdateInfo, progress_callback=None) -> None:
             )
 
     except RuntimeError:
+        tmp_zip.unlink(missing_ok=True)
         raise
     except (urllib.error.URLError, OSError) as exc:
         tmp_zip.unlink(missing_ok=True)
@@ -188,6 +199,10 @@ def download_and_apply(info: UpdateInfo, progress_callback=None) -> None:
     bat_fd, bat_path_str = tempfile.mkstemp(suffix=".bat")
     bat_path = Path(bat_path_str)
 
+    ps_zip      = _ps_single_quote(str(tmp_zip))
+    ps_exe      = _ps_single_quote(str(new_exe))
+    ps_exe_name = _ps_single_quote(EXE_NAME)
+
     bat_content = f"""@echo off
 :wait
 tasklist /FI "PID eq {pid}" 2>nul | find "{pid}" >nul
@@ -195,19 +210,29 @@ if not errorlevel 1 (
     timeout /t 1 /nobreak >nul
     goto wait
 )
-powershell -ExecutionPolicy Bypass -Command "Add-Type -AssemblyName System.IO.Compression.FileSystem; $zip = [System.IO.Compression.ZipFile]::OpenRead('{tmp_zip}'); $entry = $zip.Entries | Where-Object {{ $_.Name -eq '{EXE_NAME}' }} | Select-Object -First 1; if ($entry) {{ [System.IO.Compression.ZipFileExtensions]::ExtractToFile($entry, '{new_exe}', $true) }}; $zip.Dispose()"
+powershell -ExecutionPolicy Bypass -Command "Add-Type -AssemblyName System.IO.Compression.FileSystem; $zip = [System.IO.Compression.ZipFile]::OpenRead('{ps_zip}'); $entry = $zip.Entries | Where-Object {{ $_.Name -eq '{ps_exe_name}' }} | Select-Object -First 1; if ($entry) {{ [System.IO.Compression.ZipFileExtensions]::ExtractToFile($entry, '{ps_exe}', $true) }}; $zip.Dispose()"
 del "{tmp_zip}"
 start "" "{new_exe}"
 del "%~f0"
 """
 
-    with open(bat_fd, "w") as fh:
-        fh.write(bat_content)
+    try:
+        with open(bat_fd, "w") as fh:
+            fh.write(bat_content)
+    except OSError as exc:
+        bat_path.unlink(missing_ok=True)
+        tmp_zip.unlink(missing_ok=True)
+        raise RuntimeError(f"Could not stage update script: {exc}") from exc
 
-    subprocess.Popen(
-        ["cmd.exe", "/c", str(bat_path)],
-        creationflags=subprocess.CREATE_NO_WINDOW,
-        close_fds=True,
-    )
+    try:
+        subprocess.Popen(
+            ["cmd.exe", "/c", str(bat_path)],
+            creationflags=subprocess.CREATE_NO_WINDOW,
+            close_fds=True,
+        )
+    except OSError as exc:
+        bat_path.unlink(missing_ok=True)
+        tmp_zip.unlink(missing_ok=True)
+        raise RuntimeError(f"Could not launch updater script: {exc}") from exc
 
     sys.exit(0)

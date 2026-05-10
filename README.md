@@ -1,4 +1,4 @@
-# Valve Master Tool
+# Phoenix Master Tool
 
 **Phoenix valve model number decoder, validator, and guided builder.**
 
@@ -6,7 +6,7 @@
 
 ## What It Does
 
-Valve Master Tool (VMT) takes a Phoenix valve model number and instantly breaks it down into every field — product line, construction, size, pressure, actuator type, controller, orientation, fail-safe, options, and more — then validates the configuration against Phoenix product rules and displays the operating flow table for that valve.
+Phoenix Master Tool (PMT) takes a Phoenix valve model number and instantly breaks it down into every field — product line, construction, size, pressure, actuator type, controller, orientation, fail-safe, options, and more — then validates the configuration against Phoenix product rules and displays the operating flow table for that valve.
 
 It also works in reverse: if you don't have a model number yet, you can use the guided builder to click through valid field choices and construct one from scratch.
 
@@ -39,7 +39,7 @@ Field pickers and option dialogs show relevant spare part numbers inline, so you
 The interface includes a set of pre-loaded valid and intentionally failing model numbers so you can verify the tool is working correctly at a glance.
 
 ### Auto-Updater
-VMT checks GitHub for new releases on startup. When an update is available, a green banner appears in the status bar. Click **Install & Restart** to download and apply the update automatically — no manual file replacement needed.
+PMT checks GitHub for new releases on startup. When an update is available, a green banner appears in the status bar. Click **Install & Restart** to download and apply the update automatically — no manual file replacement needed.
 
 ---
 
@@ -87,12 +87,12 @@ Phoenix model numbers follow this structure:
 
 | File | Purpose |
 |------|---------|
-| `valve_master_backend.py` | All parsing, decoding, validation, flow tables, and spare parts logic |
-| `valve_master_pyside6.py` | Desktop GUI (PySide6) |
+| `phoenix_master_backend.py` | All parsing, decoding, validation, flow tables, and spare parts logic |
+| `phoenix_master_pyside6.py` | Desktop GUI (PySide6) |
 | `version.py` | App version string |
 | `updater.py` | GitHub Releases auto-updater |
 
-Both `valve_master_backend.py` and `valve_master_pyside6.py` must be in the same directory to run.
+Both `phoenix_master_backend.py` and `phoenix_master_pyside6.py` must be in the same directory to run.
 
 ---
 
@@ -102,7 +102,7 @@ Both `valve_master_backend.py` and `valve_master_pyside6.py` must be in the same
 
 ```
 pip install PySide6
-python valve_master_pyside6.py
+python phoenix_master_pyside6.py
 ```
 
 ---
@@ -116,8 +116,8 @@ build.bat
 ```
 
 Output:
-- `dist\ValveMasterTool\` — full distributable folder
-- `dist\ValveMasterTool.zip` — exe-only zip for GitHub Release uploads
+- `dist\PhoenixMasterTool\` — full distributable folder
+- `dist\PhoenixMasterTool.zip` — exe-only zip for GitHub Release uploads
 
 See `GIT_SETUP.md` for the full release workflow.
 
@@ -125,10 +125,10 @@ See `GIT_SETUP.md` for the full release workflow.
 
 ## Installation Notes
 
-- Install the app in a **local folder** (e.g. `C:\Tools\ValveMasterTool\`)
+- Install the app in a **local folder** (e.g. `C:\Tools\PhoenixMasterTool\`)
 - Do **not** run from OneDrive, Dropbox, or other cloud-synced folders — file locking will cause auto-updates to fail
-- VMT will warn you on startup if it detects a synced folder
+- PMT will warn you on startup if it detects a synced folder
 
 ---
 
-*Valve Master Tool is an internal Phoenix Controls engineering utility.*
+*Phoenix Master Tool is an internal Phoenix Controls engineering utility.*

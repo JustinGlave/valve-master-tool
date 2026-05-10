@@ -17,7 +17,7 @@ This repository is maintained by and for the ATS Inc. team. All contributors and
 
 ## Reporting Issues
 
-If you have a concern about conduct in this project, contact the repository owner directly at justinglave@gmail.com.
+If you have a concern about conduct in this project, contact the repository owner directly at justing@atsinc.org.
 
 ## Scope
 

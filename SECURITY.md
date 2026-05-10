@@ -15,7 +15,7 @@ If you discover a security vulnerability in this project, **do not open a public
 
 Report it privately to the repository owner:
 
-- **Email:** justinglave@gmail.com
+- **Email:** justing@atsinc.org
 - **Subject:** `[VMT Security] Brief description`
 
 Please include:

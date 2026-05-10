@@ -12,7 +12,7 @@ This is an internal tool maintained by the ATS Inc. team. Contributions are limi
    ```
 2. Run the app directly for development:
    ```
-   python valve_master_pyside6.py
+   python phoenix_master_pyside6.py
    ```
 
 ## Making Changes
