@@ -46,6 +46,11 @@ logger = logging.getLogger(__name__)
 GITHUB_OWNER = "JustinGlave"
 GITHUB_REPO  = "phoenix-master-tool"
 EXE_NAME     = "PhoenixMasterTool.exe"
+# Legacy exe names that older installs may have on disk. The auto-updater
+# looks for an exe entry inside the downloaded zip whose name matches the
+# running process first, then falls back to EXE_NAME, then to any of these
+# legacy names. Keep oldest first so a freshly-renamed install still works.
+LEGACY_EXE_NAMES = ("ValveMasterTool.exe",)
 # ──────────────────────────────────────────────────────────────────────────────
 
 RELEASES_API    = f"https://api.github.com/repos/{GITHUB_OWNER}/{GITHUB_REPO}/releases/latest"
@@ -102,14 +107,26 @@ def check_for_update() -> Optional[UpdateInfo]:
         if _parse_version(latest_tag) <= _parse_version(__version__):
             return None  # already up to date
 
-        # Find the exe-only zip (not the full install zip)
+        # Find the exe-only zip (not the full install zip).
+        # Preference: zip whose stem matches EXE_NAME's stem (so v1.1.0+
+        # picks PhoenixMasterTool.zip), then any zip matching a known
+        # legacy name (so a future asset rename doesn't break old installs),
+        # then any non-fullinstall zip.
         assets = data.get("assets", [])
-        zip_asset = next(
-            (a for a in assets
-             if a.get("name", "").lower() == "valvemastertool.zip"),
-            None,
-        )
-        # Fallback: any zip that isn't the full install
+        preferred_stems = [Path(EXE_NAME).stem.lower()]
+        preferred_stems += [Path(name).stem.lower() for name in LEGACY_EXE_NAMES]
+
+        zip_asset = None
+        for stem in preferred_stems:
+            target = f"{stem}.zip"
+            zip_asset = next(
+                (a for a in assets if a.get("name", "").lower() == target),
+                None,
+            )
+            if zip_asset is not None:
+                break
+
+        # Final fallback: any zip that isn't the full install.
         if zip_asset is None:
             zip_asset = next(
                 (a for a in assets
@@ -154,7 +171,11 @@ def download_and_apply(info: UpdateInfo, progress_callback=None) -> None:
         )
 
     current_exe = Path(sys.executable).resolve()
-    new_exe     = current_exe.parent / EXE_NAME
+    # Overwrite the running exe in place. Using sys.executable's actual
+    # basename (rather than EXE_NAME) means a legacy install named
+    # ValveMasterTool.exe gets updated cleanly without leaving an orphan
+    # exe behind in the install directory.
+    new_exe = current_exe
 
     # Download zip to system temp
     tmp_fd, tmp_zip_str = tempfile.mkstemp(suffix=".zip")
@@ -199,9 +220,20 @@ def download_and_apply(info: UpdateInfo, progress_callback=None) -> None:
     bat_fd, bat_path_str = tempfile.mkstemp(suffix=".bat")
     bat_path = Path(bat_path_str)
 
-    ps_zip      = _ps_single_quote(str(tmp_zip))
-    ps_exe      = _ps_single_quote(str(new_exe))
-    ps_exe_name = _ps_single_quote(EXE_NAME)
+    ps_zip = _ps_single_quote(str(tmp_zip))
+    ps_exe = _ps_single_quote(str(new_exe))
+
+    # Build a PowerShell-side preference list of candidate entry names so the
+    # script picks whichever exe name actually exists in the zip — running
+    # exe name first (overwrites in place), then EXE_NAME, then legacy names.
+    candidate_names: list[str] = []
+    running_basename = current_exe.name
+    for name in (running_basename, EXE_NAME, *LEGACY_EXE_NAMES):
+        if name and name not in candidate_names:
+            candidate_names.append(name)
+    ps_candidates = ", ".join(
+        f"'{_ps_single_quote(name)}'" for name in candidate_names
+    )
 
     bat_content = f"""@echo off
 :wait
@@ -210,7 +242,7 @@ if not errorlevel 1 (
     timeout /t 1 /nobreak >nul
     goto wait
 )
-powershell -ExecutionPolicy Bypass -Command "Add-Type -AssemblyName System.IO.Compression.FileSystem; $zip = [System.IO.Compression.ZipFile]::OpenRead('{ps_zip}'); $entry = $zip.Entries | Where-Object {{ $_.Name -eq '{ps_exe_name}' }} | Select-Object -First 1; if ($entry) {{ [System.IO.Compression.ZipFileExtensions]::ExtractToFile($entry, '{ps_exe}', $true) }}; $zip.Dispose()"
+powershell -ExecutionPolicy Bypass -Command "Add-Type -AssemblyName System.IO.Compression.FileSystem; $zip = [System.IO.Compression.ZipFile]::OpenRead('{ps_zip}'); $candidates = @({ps_candidates}); $entry = $null; foreach ($name in $candidates) {{ $entry = $zip.Entries | Where-Object {{ $_.Name -eq $name }} | Select-Object -First 1; if ($entry) {{ break }} }}; if ($entry) {{ [System.IO.Compression.ZipFileExtensions]::ExtractToFile($entry, '{ps_exe}', $true) }}; $zip.Dispose()"
 del "{tmp_zip}"
 start "" "{new_exe}"
 del "%~f0"
