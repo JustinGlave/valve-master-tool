@@ -62,25 +62,15 @@ REM   set VMT_SIGNING_CERT=C:\path\to\cert.pfx
 REM   set VMT_SIGNING_PASSWORD=...
 REM   set SIGNTOOL=C:\Program Files (x86)\Windows Kits\10\bin\10.0.22621.0\x64\signtool.exe
 REM See GIT_SETUP.md for cert procurement and full instructions.
+REM
+REM Signing is dispatched to a labeled subroutine via `call` so the
+REM `(x86)` literal inside %ProgramFiles(x86)% doesn't break cmd's nested
+REM IF-block paren counter.
 if not "%VMT_SIGNING_CERT%"=="" (
-    if "%SIGNTOOL%"=="" (
-        if exist "%ProgramFiles(x86)%\Windows Kits\10\bin\10.0.22621.0\x64\signtool.exe" set SIGNTOOL=%ProgramFiles(x86)%\Windows Kits\10\bin\10.0.22621.0\x64\signtool.exe
-    )
-    if "%SIGNTOOL%"=="" (
-        echo WARNING: VMT_SIGNING_CERT is set but signtool.exe was not found.
-        echo          Install the Windows 10/11 SDK, or set %%SIGNTOOL%% explicitly.
-        echo          Skipping signing.
-    ) else (
-        echo Signing dist\PhoenixMasterTool\PhoenixMasterTool.exe...
-        "%SIGNTOOL%" sign /f "%VMT_SIGNING_CERT%" /p "%VMT_SIGNING_PASSWORD%" /tr http://timestamp.digicert.com /td sha256 /fd sha256 "dist\PhoenixMasterTool\PhoenixMasterTool.exe"
-        if errorlevel 1 (
-            echo ERROR: Code signing failed.
-            pause
-            exit /b 1
-        )
-    )
+    call :sign_exe
+    if errorlevel 1 exit /b 1
 ) else (
-    echo [skip] Code signing disabled (set VMT_SIGNING_CERT to enable - see GIT_SETUP.md).
+    echo [skip] Code signing disabled ^(set VMT_SIGNING_CERT to enable - see GIT_SETUP.md^).
 )
 
 REM ── Step 2: Inno Setup ──────────────────────────────────────
@@ -109,15 +99,8 @@ if errorlevel 1 (
 
 REM Sign the installer too if a cert is configured.
 if not "%VMT_SIGNING_CERT%"=="" (
-    if not "%SIGNTOOL%"=="" (
-        echo Signing dist\PhoenixMasterToolSetup.exe...
-        "%SIGNTOOL%" sign /f "%VMT_SIGNING_CERT%" /p "%VMT_SIGNING_PASSWORD%" /tr http://timestamp.digicert.com /td sha256 /fd sha256 "dist\PhoenixMasterToolSetup.exe"
-        if errorlevel 1 (
-            echo ERROR: Installer signing failed.
-            pause
-            exit /b 1
-        )
-    )
+    call :sign_installer
+    if errorlevel 1 exit /b 1
 )
 
 REM ── Step 3: Zip (exe only — for auto-updater) ───────────────
@@ -128,7 +111,7 @@ powershell -ExecutionPolicy Bypass -Command ^
     "Compress-Archive -Path 'dist\PhoenixMasterTool\PhoenixMasterTool.exe' -DestinationPath 'dist\PhoenixMasterTool.zip' -Force"
 
 if errorlevel 1 (
-    echo ERROR: Zip (exe only) failed.
+    echo ERROR: Zip ^(exe only^) failed.
     pause
     exit /b 1
 )
@@ -141,7 +124,7 @@ powershell -ExecutionPolicy Bypass -Command ^
     "Compress-Archive -Path 'dist\PhoenixMasterTool' -DestinationPath 'dist\PhoenixMasterTool_FullInstall.zip' -Force"
 
 if errorlevel 1 (
-    echo ERROR: Zip (full install) failed.
+    echo ERROR: Zip ^(full install^) failed.
     pause
     exit /b 1
 )
@@ -164,3 +147,38 @@ echo   4. Tag: vX.X.X
 echo   5. Upload: PhoenixMasterToolSetup.exe  +  PhoenixMasterTool.zip
 echo.
 pause
+exit /b 0
+
+REM ============================================================
+REM  Subroutines (called from the signing checks above)
+REM ============================================================
+
+:sign_exe
+if "%SIGNTOOL%"=="" (
+    if exist "%ProgramFiles(x86)%\Windows Kits\10\bin\10.0.22621.0\x64\signtool.exe" set SIGNTOOL=%ProgramFiles(x86)%\Windows Kits\10\bin\10.0.22621.0\x64\signtool.exe
+)
+if "%SIGNTOOL%"=="" (
+    echo WARNING: VMT_SIGNING_CERT is set but signtool.exe was not found.
+    echo          Install the Windows 10/11 SDK, or set %%SIGNTOOL%% explicitly.
+    echo          Skipping signing.
+    exit /b 0
+)
+echo Signing dist\PhoenixMasterTool\PhoenixMasterTool.exe...
+"%SIGNTOOL%" sign /f "%VMT_SIGNING_CERT%" /p "%VMT_SIGNING_PASSWORD%" /tr http://timestamp.digicert.com /td sha256 /fd sha256 "dist\PhoenixMasterTool\PhoenixMasterTool.exe"
+if errorlevel 1 (
+    echo ERROR: Code signing failed.
+    pause
+    exit /b 1
+)
+exit /b 0
+
+:sign_installer
+if "%SIGNTOOL%"=="" exit /b 0
+echo Signing dist\PhoenixMasterToolSetup.exe...
+"%SIGNTOOL%" sign /f "%VMT_SIGNING_CERT%" /p "%VMT_SIGNING_PASSWORD%" /tr http://timestamp.digicert.com /td sha256 /fd sha256 "dist\PhoenixMasterToolSetup.exe"
+if errorlevel 1 (
+    echo ERROR: Installer signing failed.
+    pause
+    exit /b 1
+)
+exit /b 0
